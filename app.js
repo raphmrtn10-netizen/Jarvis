@@ -1,0 +1,532 @@
+/* =========================================================
+   J.A.R.V.I.S. INTERFACE — APPLICATION LOGIC
+   Organized by feature. Each section is self-contained so
+   you can delete a whole block if you don't want that feature.
+   ========================================================= */
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* =========================================================
+   1. SOUND ENGINE
+   Synthesized tones via Web Audio API — no external audio
+   files needed. All other features call playTone()/playChime().
+   ========================================================= */
+const Sound = (() => {
+  let ctx = null;
+  let enabled = false; // starts off; user opts in (also avoids autoplay restrictions)
+
+  function ensureContext(){
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function tone(freq, duration, type = 'sine', gain = 0.05, delay = 0){
+    if (!enabled) return;
+    ensureContext();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.value = 0;
+    osc.connect(g).connect(ctx.destination);
+    const t0 = ctx.currentTime + delay;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+  }
+
+  return {
+    setEnabled(v){ enabled = v; if (v) ensureContext(); },
+    isEnabled(){ return enabled; },
+    click(){ tone(1200, 0.05, 'square', 0.03); },
+    send(){ tone(880, 0.08, 'sine', 0.05); },
+    receive(){ tone(660, 0.09, 'sine', 0.05); tone(990, 0.09, 'sine', 0.04, 0.08); },
+    bootComplete(){ tone(440, 0.15, 'sine', 0.05); tone(880, 0.2, 'sine', 0.05, 0.12); },
+    taskDone(){ tone(1046, 0.12, 'sine', 0.05); tone(1318, 0.14, 'sine', 0.04, 0.1); },
+    error(){ tone(220, 0.2, 'sawtooth', 0.04); }
+  };
+})();
+
+/* =========================================================
+   2. BOOT SEQUENCE
+   ========================================================= */
+(function boot(){
+  const overlay = document.getElementById('boot-overlay');
+  const log = document.getElementById('boot-log');
+  const barFill = document.getElementById('boot-bar-fill');
+  const skipBtn = document.getElementById('boot-skip');
+  const shell = document.getElementById('shell');
+
+  const lines = [
+    'INITIALIZING CORE SYSTEMS…',
+    'LOADING DIAGNOSTIC MODULES…',
+    'CALIBRATING SENSOR ARRAY…',
+    'ESTABLISHING SECURE LINK…',
+    'ALL SYSTEMS NOMINAL.'
+  ];
+
+  function finishBoot(){
+    overlay.classList.add('hidden');
+    shell.classList.add('revealed');
+    Sound.bootComplete();
+    setTimeout(() => overlay.remove(), 700);
+  }
+
+  if (reducedMotion){
+    finishBoot();
+    return;
+  }
+
+  lines.forEach((text, i) => {
+    setTimeout(() => {
+      const div = document.createElement('div');
+      div.textContent = `> ${text}`;
+      log.appendChild(div);
+    }, i * 420);
+  });
+
+  requestAnimationFrame(() => { barFill.style.width = '100%'; });
+
+  const bootTimer = setTimeout(finishBoot, 2300);
+  skipBtn.addEventListener('click', () => { clearTimeout(bootTimer); finishBoot(); });
+})();
+
+/* =========================================================
+   3. PARTICLE FIELD
+   Faint drifting dots on a full-screen canvas behind the UI.
+   ========================================================= */
+(function particles(){
+  const canvas = document.getElementById('particle-field');
+  if (reducedMotion){ canvas.remove(); return; }
+  const ctx = canvas.getContext('2d');
+  let w, h, particlesArr;
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  function makeParticles(){
+    const count = Math.floor((w * h) / 22000);
+    particlesArr = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.4 + 0.4,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: (Math.random() - 0.5) * 0.15,
+      a: Math.random() * 0.4 + 0.1
+    }));
+  }
+  function tick(){
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(79, 216, 230, 1)';
+    particlesArr.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+      ctx.globalAlpha = p.a;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', () => { resize(); makeParticles(); });
+  resize(); makeParticles(); tick();
+})();
+
+/* =========================================================
+   4. TAB NAVIGATION
+   ========================================================= */
+(function tabs(){
+  const buttons = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.panel');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      Sound.click();
+      buttons.forEach(b => b.setAttribute('aria-selected', 'false'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+})();
+
+/* =========================================================
+   5. CLOCK / DATE READOUT
+   ========================================================= */
+(function clock(){
+  const timeEl = document.getElementById('clock-time');
+  const dateEl = document.getElementById('clock-date');
+  const zoneEl = document.getElementById('clock-zone');
+  function tick(){
+    const now = new Date();
+    timeEl.textContent = now.toLocaleTimeString([], { hour12: false });
+    dateEl.textContent = now.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
+    zoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+/* =========================================================
+   6. WEATHER WIDGET (Open-Meteo — free, no API key required)
+   ========================================================= */
+(function weather(){
+  const locEl = document.getElementById('weather-loc');
+  const tempEl = document.getElementById('weather-temp');
+  const condEl = document.getElementById('weather-cond');
+
+  const WMO = {
+    0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Light snow', 73: 'Snow',
+    75: 'Heavy snow', 80: 'Rain showers', 81: 'Rain showers', 82: 'Violent showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm'
+  };
+
+  async function fetchWeather(lat, lon, label){
+    try{
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&temperature_unit=celsius`);
+      const data = await res.json();
+      const temp = Math.round(data.current.temperature_2m);
+      const code = data.current.weather_code;
+      locEl.textContent = label;
+      tempEl.textContent = `${temp}°C`;
+      condEl.textContent = WMO[code] || 'Unknown';
+    }catch(err){
+      locEl.textContent = 'Unavailable';
+      tempEl.textContent = '--';
+      condEl.textContent = 'Offline';
+    }
+  }
+
+  if (navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos => fetchWeather(pos.coords.latitude, pos.coords.longitude, 'Current position'),
+      () => fetchWeather(51.5074, -0.1278, 'London (default)'), // fallback if permission denied
+      { timeout: 6000 }
+    );
+  } else {
+    fetchWeather(51.5074, -0.1278, 'London (default)');
+  }
+})();
+
+/* =========================================================
+   7. TASKS PANEL (in-memory — resets on page reload)
+   ========================================================= */
+(function tasks(){
+  const form = document.getElementById('task-form');
+  const input = document.getElementById('task-input');
+  const list = document.getElementById('task-list');
+  const emptyMsg = document.getElementById('task-empty');
+  const summary = document.getElementById('task-summary');
+
+  let tasksArr = [];
+  let nextId = 1;
+
+  function render(){
+    list.innerHTML = '';
+    emptyMsg.style.display = tasksArr.length ? 'none' : 'block';
+    tasksArr.forEach(task => {
+      const li = document.createElement('li');
+      li.className = 'task-item' + (task.done ? ' done' : '');
+      li.innerHTML = `
+        <input type="checkbox" ${task.done ? 'checked' : ''} aria-label="Mark task done">
+        <span></span>
+        <button class="del" aria-label="Delete task">✕</button>
+      `;
+      li.querySelector('span').textContent = task.text;
+      li.querySelector('input').addEventListener('change', () => {
+        task.done = !task.done;
+        if (task.done) Sound.taskDone();
+        render();
+      });
+      li.querySelector('.del').addEventListener('click', () => {
+        tasksArr = tasksArr.filter(t => t.id !== task.id);
+        render();
+      });
+      list.appendChild(li);
+    });
+    const pending = tasksArr.filter(t => !t.done).length;
+    summary.textContent = tasksArr.length
+      ? `${pending} pending · ${tasksArr.length - pending} completed`
+      : '';
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    tasksArr.push({ id: nextId++, text, done: false });
+    input.value = '';
+    Sound.click();
+    render();
+  });
+
+  render();
+})();
+
+/* =========================================================
+   8. SYSTEMS PANEL — live device diagnostics
+   ========================================================= */
+(function systems(){
+  const battery = document.getElementById('sys-battery');
+  const charging = document.getElementById('sys-charging');
+  const online = document.getElementById('sys-online');
+  const connType = document.getElementById('sys-conn-type');
+  const resolution = document.getElementById('sys-resolution');
+  const platform = document.getElementById('sys-platform');
+
+  // Battery (Chrome/Edge only — feature detect gracefully)
+  if ('getBattery' in navigator){
+    navigator.getBattery().then(b => {
+      function update(){
+        battery.textContent = `${Math.round(b.level * 100)}%`;
+        charging.textContent = b.charging ? 'Yes' : 'No';
+      }
+      update();
+      b.addEventListener('levelchange', update);
+      b.addEventListener('chargingchange', update);
+    });
+  } else {
+    battery.textContent = 'Not supported';
+    charging.textContent = '—';
+  }
+
+  // Online/offline
+  function updateOnline(){ online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
+  updateOnline();
+  window.addEventListener('online', updateOnline);
+  window.addEventListener('offline', updateOnline);
+
+  // Connection type (Chrome/Edge only)
+  connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
+
+  // Display + platform
+  resolution.textContent = `${window.screen.width}×${window.screen.height}`;
+  platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
+})();
+
+/* =========================================================
+   9. THEME SWITCHER
+   ========================================================= */
+(function themes(){
+  const swatches = document.querySelectorAll('.swatch');
+  swatches.forEach(sw => {
+    sw.addEventListener('click', () => {
+      Sound.click();
+      document.documentElement.setAttribute('data-theme', sw.dataset.theme);
+      swatches.forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+    });
+  });
+})();
+
+/* =========================================================
+   10. SOUND + VOICE TOGGLES
+   ========================================================= */
+let voiceReplyEnabled = false;
+
+(function toggles(){
+  const soundToggle = document.getElementById('sound-toggle');
+  const voiceToggle = document.getElementById('voice-toggle');
+  const muteHeaderBtn = document.getElementById('mute-toggle');
+
+  function setSound(on){
+    Sound.setEnabled(on);
+    soundToggle.classList.toggle('on', on);
+    soundToggle.setAttribute('aria-pressed', on);
+    muteHeaderBtn.classList.toggle('active', on);
+    if (on) Sound.click();
+  }
+  function setVoice(on){
+    voiceReplyEnabled = on;
+    voiceToggle.classList.toggle('on', on);
+    voiceToggle.setAttribute('aria-pressed', on);
+  }
+
+  soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  muteHeaderBtn.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  voiceToggle.addEventListener('click', () => setVoice(!voiceReplyEnabled));
+})();
+
+/* =========================================================
+   11. SETTINGS MODAL (API key entry)
+   Key is stored ONLY in a JS variable — never persisted to
+   disk or browser storage. It is lost on refresh by design.
+   ========================================================= */
+let apiKey = '';
+
+(function settingsModal(){
+  const modal = document.getElementById('settings-modal');
+  const openBtns = [
+    document.getElementById('settings-btn'),
+    document.getElementById('chat-hint-btn'),
+    document.getElementById('sys-settings-btn')
+  ];
+  const cancelBtn = document.getElementById('settings-cancel');
+  const saveBtn = document.getElementById('settings-save');
+  const input = document.getElementById('api-key-input');
+  const chatHint = document.getElementById('chat-hint');
+  const sysApiStatus = document.getElementById('sys-api-status');
+
+  function open(){ modal.classList.add('open'); input.value = apiKey; input.focus(); }
+  function close(){ modal.classList.remove('open'); }
+
+  openBtns.forEach(btn => btn && btn.addEventListener('click', open));
+  cancelBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+  saveBtn.addEventListener('click', () => {
+    apiKey = input.value.trim();
+    Sound.click();
+    if (apiKey){
+      chatHint.style.display = 'none';
+      sysApiStatus.textContent = 'Key set (session only)';
+    } else {
+      chatHint.style.display = 'block';
+      sysApiStatus.textContent = 'Not set';
+    }
+    close();
+  });
+})();
+
+/* =========================================================
+   12. COMMS PANEL — chat with Claude + voice in/out
+   ========================================================= */
+(function comms(){
+  const chatLog = document.getElementById('chat-log');
+  const chatEmpty = document.getElementById('chat-empty');
+  const form = document.getElementById('command-form');
+  const input = document.getElementById('command-input');
+  const micBtn = document.getElementById('mic-btn');
+  const hudCore = document.getElementById('hud-core');
+  const hudStatus = document.getElementById('hud-status');
+
+  let history = []; // { role: 'user'|'assistant', content: string }
+
+  function addMessage(who, text){
+    chatEmpty.style.display = 'none';
+    const div = document.createElement('div');
+    div.className = `msg ${who}`;
+    const label = who === 'user' ? 'YOU' : who === 'jarvis' ? 'JARVIS' : 'SYSTEM';
+    div.innerHTML = `<div class="who">${label}</div><div class="bubble"></div>`;
+    div.querySelector('.bubble').textContent = text;
+    chatLog.appendChild(div);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function setHudState(state){
+    hudCore.classList.remove('listening', 'thinking');
+    if (state) hudCore.classList.add(state);
+    hudStatus.textContent = state === 'listening' ? 'LISTENING'
+      : state === 'thinking' ? 'THINKING'
+      : 'READY';
+  }
+
+  async function sendToClaude(userText){
+    if (!apiKey){
+      addMessage('system', 'No API key set. Open Settings (gear icon) and add your Anthropic API key to enable live responses.');
+      return;
+    }
+    history.push({ role: 'user', content: userText });
+    setHudState('thinking');
+    try{
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          system: 'You are JARVIS, a courteous and efficient personal AI assistant. Keep replies concise and address the user as "sir" occasionally, in the style of a helpful sci-fi assistant, without being overly theatrical.',
+          messages: history
+        })
+      });
+      if (!res.ok){
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || `Request failed (${res.status})`);
+      }
+      const data = await res.json();
+      const reply = data.content.map(block => block.text || '').join('').trim();
+      history.push({ role: 'assistant', content: reply });
+      addMessage('jarvis', reply);
+      Sound.receive();
+      if (voiceReplyEnabled) speak(reply);
+    }catch(err){
+      addMessage('system', `Error: ${err.message}`);
+      Sound.error();
+    }finally{
+      setHudState(null);
+    }
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage('user', text);
+    Sound.send();
+    input.value = '';
+    sendToClaude(text);
+  });
+
+  /* ---- Voice input (Web Speech API) ---- */
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognizing = false;
+  let recognizer = null;
+
+  if (SpeechRecognition){
+    recognizer = new SpeechRecognition();
+    recognizer.continuous = false;
+    recognizer.interimResults = false;
+    recognizer.lang = 'en-US';
+
+    recognizer.addEventListener('start', () => {
+      recognizing = true;
+      micBtn.classList.add('recording');
+      setHudState('listening');
+    });
+    recognizer.addEventListener('end', () => {
+      recognizing = false;
+      micBtn.classList.remove('recording');
+      setHudState(null);
+    });
+    recognizer.addEventListener('result', e => {
+      const transcript = e.results[0][0].transcript;
+      input.value = transcript;
+      form.requestSubmit();
+    });
+    recognizer.addEventListener('error', () => {
+      recognizing = false;
+      micBtn.classList.remove('recording');
+      setHudState(null);
+    });
+
+    micBtn.addEventListener('click', () => {
+      if (recognizing){ recognizer.stop(); return; }
+      Sound.click();
+      recognizer.start();
+    });
+  } else {
+    micBtn.disabled = true;
+    micBtn.title = 'Voice input not supported in this browser';
+  }
+
+  /* ---- Voice output (Speech Synthesis) ---- */
+  function speak(text){
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1.02;
+    utter.pitch = 0.9;
+    window.speechSynthesis.speak(utter);
+  }
+})();
