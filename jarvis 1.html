@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. — Interface</title>
+<meta name="description" content="A HUD-style AI interface skeleton.">
+
+<!-- Two typefaces: Orbitron for display/labels, Rajdhani for body/data -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  /* ---------- Design tokens ---------- */
+  :root{
+    --bg-0:#04070a;          /* deep base */
+    --bg-1:#070d12;          /* panel base */
+    --line:#0f2530;          /* hairline / grid */
+    --cyan:#4fd8e6;          /* primary signal */
+    --cyan-dim:#1c5e68;
+    --amber:#e6a04f;         /* secondary / alert accent */
+    --text-hi:#d9f4f7;
+    --text-lo:#5f8992;
+    --danger:#e65f5f;
+    --radius:2px;
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Rajdhani', sans-serif;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  html,body{
+    height:100%;
+    background:var(--bg-0);
+    color:var(--text-hi);
+    font-family:var(--font-body);
+    overflow-x:hidden;
+  }
+
+  body{
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:48px 48px;
+    background-position:center;
+  }
+
+  /* subtle vignette so the grid doesn't fight the HUD */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:radial-gradient(circle at center, transparent 0%, var(--bg-0) 78%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001s !important; animation-iteration-count:1 !important; transition-duration:0.001s !important; }
+  }
+
+  /* ---------- Layout shell ---------- */
+  .shell{
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+  }
+
+  /* ---------- Top bar ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:20px clamp(16px,4vw,48px);
+    border-bottom:1px solid var(--line);
+  }
+
+  .brand{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(14px,2vw,18px);
+    letter-spacing:0.35em;
+    color:var(--text-hi);
+  }
+  .brand span{ color:var(--cyan); }
+
+  .status-line{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--font-body);
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--text-lo);
+  }
+
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 8px 2px var(--cyan);
+    animation:pulse 2.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse{
+    0%,100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:0.4; transform:scale(0.75); }
+  }
+
+  /* ---------- Main HUD stage ---------- */
+  main{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+  }
+
+  .hud-core{
+    position:relative;
+    width:min(62vw, 460px);
+    aspect-ratio:1/1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .hud-core svg{ width:100%; height:100%; overflow:visible; }
+
+  .ring{ transform-origin:50% 50%; fill:none; }
+  .ring-outer{ stroke:var(--cyan-dim); stroke-width:1; }
+  .ring-tick{ stroke:var(--cyan-dim); stroke-width:1; }
+  .ring-sweep{
+    stroke:var(--cyan);
+    stroke-width:2;
+    stroke-linecap:round;
+    filter:drop-shadow(0 0 6px var(--cyan));
+    animation:spin 6s linear infinite;
+  }
+  .ring-sweep-slow{
+    stroke:var(--amber);
+    stroke-width:1.4;
+    stroke-dasharray:2 10;
+    opacity:0.8;
+    animation:spin-rev 14s linear infinite;
+  }
+
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes spin-rev{ to{ transform:rotate(-360deg); } }
+
+  .core-center{
+    position:absolute;
+    text-align:center;
+    font-family:var(--font-display);
+  }
+  .core-center .label{
+    font-size:11px;
+    letter-spacing:0.3em;
+    color:var(--text-lo);
+    margin-bottom:8px;
+  }
+  .core-center .value{
+    font-size:clamp(28px,5vw,44px);
+    font-weight:700;
+    color:var(--cyan);
+    text-shadow:0 0 18px rgba(79,216,230,0.55);
+  }
+
+  /* ---------- Side readouts ---------- */
+  .readout{
+    position:absolute;
+    width:220px;
+    font-size:12px;
+    color:var(--text-lo);
+    letter-spacing:0.05em;
+    display:none;
+  }
+  @media (min-width: 900px){ .readout{ display:block; } }
+
+  .readout.left{ left:clamp(16px,4vw,64px); top:50%; transform:translateY(-50%); }
+  .readout.right{ right:clamp(16px,4vw,64px); top:50%; transform:translateY(-50%); }
+
+  .readout .title{
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:0.25em;
+    color:var(--cyan);
+    margin-bottom:12px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:6px;
+  }
+
+  .readout .row{
+    display:flex;
+    justify-content:space-between;
+    padding:4px 0;
+    border-bottom:1px dashed var(--line);
+  }
+
+  /* animated bar-graph waveform, pure CSS, no libraries */
+  .waveform{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:36px;
+    margin-top:12px;
+  }
+  .waveform span{
+    flex:1;
+    background:var(--cyan-dim);
+    animation:wave 1.4s ease-in-out infinite;
+  }
+  .waveform span:nth-child(odd){ background:var(--cyan); }
+  @keyframes wave{
+    0%,100%{ height:20%; }
+    50%{ height:90%; }
+  }
+  .waveform span:nth-child(1){ animation-delay:0.0s; }
+  .waveform span:nth-child(2){ animation-delay:0.15s; }
+  .waveform span:nth-child(3){ animation-delay:0.3s; }
+  .waveform span:nth-child(4){ animation-delay:0.45s; }
+  .waveform span:nth-child(5){ animation-delay:0.6s; }
+  .waveform span:nth-child(6){ animation-delay:0.3s; }
+  .waveform span:nth-child(7){ animation-delay:0.15s; }
+  .waveform span:nth-child(8){ animation-delay:0.0s; }
+
+  /* ---------- Command input ---------- */
+  .command-bar{
+    max-width:640px;
+    margin:0 auto;
+    padding:0 16px 40px;
+    width:100%;
+  }
+
+  .command-bar form{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid var(--line);
+    background:rgba(15,37,48,0.35);
+    padding:12px 16px;
+    border-radius:var(--radius);
+  }
+
+  .command-bar .prompt-glyph{
+    color:var(--cyan);
+    font-family:var(--font-display);
+    font-size:14px;
+  }
+
+  .command-bar input{
+    flex:1;
+    background:none;
+    border:none;
+    outline:none;
+    color:var(--text-hi);
+    font-family:var(--font-body);
+    font-size:15px;
+    letter-spacing:0.02em;
+  }
+  .command-bar input::placeholder{ color:var(--text-lo); }
+
+  .command-bar button{
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:0.15em;
+    color:var(--bg-0);
+    background:var(--cyan);
+    border:none;
+    padding:9px 16px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    transition:opacity 0.15s ease;
+  }
+  .command-bar button:hover{ opacity:0.85; }
+  .command-bar button:focus-visible,
+  .command-bar input:focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+
+  /* ---------- Footer ---------- */
+  footer{
+    border-top:1px solid var(--line);
+    padding:14px clamp(16px,4vw,48px);
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:var(--text-lo);
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <div class="brand">J<span>·</span>A<span>·</span>R<span>·</span>V<span>·</span>I<span>·</span>S</div>
+    <div class="status-line"><span class="dot"></span> SYSTEM ONLINE</div>
+  </header>
+
+  <main>
+
+    <!-- Left readout: swap this content for real system/status data -->
+    <aside class="readout left">
+      <div class="title">Diagnostics</div>
+      <div class="row"><span>Core Temp</span><span>36.6°C</span></div>
+      <div class="row"><span>Power</span><span>98%</span></div>
+      <div class="row"><span>Network</span><span>Stable</span></div>
+      <div class="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+    </aside>
+
+    <!-- Central HUD ring -->
+    <div class="hud-core">
+      <svg viewBox="0 0 200 200">
+        <circle class="ring ring-outer" cx="100" cy="100" r="92"/>
+        <circle class="ring ring-outer" cx="100" cy="100" r="70" opacity="0.5"/>
+        <!-- tick marks -->
+        <g class="ring-tick">
+          <line x1="100" y1="6" x2="100" y2="16"/>
+          <line x1="100" y1="184" x2="100" y2="194"/>
+          <line x1="6" y1="100" x2="16" y2="100"/>
+          <line x1="184" y1="100" x2="194" y2="100"/>
+        </g>
+        <!-- animated sweep arcs -->
+        <circle class="ring ring-sweep" cx="100" cy="100" r="92"
+                stroke-dasharray="40 500" stroke-dashoffset="0"/>
+        <circle class="ring ring-sweep-slow" cx="100" cy="100" r="80"/>
+      </svg>
+      <div class="core-center">
+        <div class="label">STATUS</div>
+        <div class="value">READY</div>
+      </div>
+    </div>
+
+    <!-- Right readout: swap this content for real system/status data -->
+    <aside class="readout right">
+      <div class="title">Session</div>
+      <div class="row"><span>Uptime</span><span id="uptime">00:00:00</span></div>
+      <div class="row"><span>Mode</span><span>Standby</span></div>
+      <div class="row"><span>Queue</span><span>0</span></div>
+    </aside>
+
+  </main>
+
+  <div class="command-bar">
+    <form id="command-form">
+      <span class="prompt-glyph">&gt;</span>
+      <input id="command-input" type="text" placeholder="Type a command…" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <footer>
+    <span>BUILD 0.1.0</span>
+    <span>ALL SYSTEMS NOMINAL</span>
+  </footer>
+
+</div>
+
+<script>
+  // ---------- Uptime counter ----------
+  const startTime = Date.now();
+  const uptimeEl = document.getElementById('uptime');
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function tickUptime(){
+    const diff = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(diff / 3600);
+    const m = Math.floor((diff % 3600) / 60);
+    const s = diff % 60;
+    if (uptimeEl) uptimeEl.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+  setInterval(tickUptime, 1000);
+  tickUptime();
+
+  // ---------- Command bar wiring ----------
+  // Replace this handler with a real call (e.g. to the Anthropic API)
+  // to turn this skeleton into a working assistant interface.
+  const form = document.getElementById('command-form');
+  const input = document.getElementById('command-input');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    console.log('Command submitted:', text);
+    // TODO: send `text` to your backend / API here and render the response.
+    input.value = '';
+  });
+</script>
+
+</body>
+</html>
