@@ -1,19 +1,15 @@
 /* =========================================================
    J.A.R.V.I.S. INTERFACE — APPLICATION LOGIC
-   Organized by feature. Each section is self-contained so
-   you can delete a whole block if you don't want that feature.
    ========================================================= */
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* =========================================================
    1. SOUND ENGINE
-   Synthesized tones via Web Audio API — no external audio
-   files needed. All other features call playTone()/playChime().
    ========================================================= */
 const Sound = (() => {
   let ctx = null;
-  let enabled = false; // starts off; user opts in (also avoids autoplay restrictions)
+  let enabled = false;
 
   function ensureContext(){
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -95,7 +91,6 @@ const Sound = (() => {
 
 /* =========================================================
    3. PARTICLE FIELD
-   Faint drifting dots on a full-screen canvas behind the UI.
    ========================================================= */
 (function particles(){
   const canvas = document.getElementById('particle-field');
@@ -149,7 +144,13 @@ const Sound = (() => {
       buttons.forEach(b => b.setAttribute('aria-selected', 'false'));
       panels.forEach(p => p.classList.remove('active'));
       btn.setAttribute('aria-selected', 'true');
-      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+      const targetPanel = document.getElementById(`panel-${btn.dataset.tab}`);
+      if (targetPanel) targetPanel.classList.add('active');
+
+      // Refresh Virtual FS when Workplace tab is opened
+      if (btn.dataset.tab === 'workplace' && typeof window.renderFileTree === 'function') {
+        window.renderFileTree();
+      }
     });
   });
 })();
@@ -172,7 +173,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   6. WEATHER WIDGET (Open-Meteo — free, no API key required)
+   6. WEATHER WIDGET
    ========================================================= */
 (function weather(){
   const locEl = document.getElementById('weather-loc');
@@ -215,7 +216,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   7. TASKS PANEL (in-memory — resets on page reload)
+   7. TASKS PANEL
    ========================================================= */
 (function tasks(){
   const form = document.getElementById('task-form');
@@ -261,9 +262,10 @@ const Sound = (() => {
       return [];
     }
   }
+
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasksArr)); }
-    catch(err){ /* storage unavailable */ }
+    catch(err){}
   }
 
   let tasksArr = load();
@@ -277,6 +279,7 @@ const Sound = (() => {
     save();
     render();
   }
+
   function moveTaskByStep(task, direction){
     const idx = STATUSES.indexOf(task.status);
     const newIdx = idx + direction;
@@ -288,6 +291,7 @@ const Sound = (() => {
     const d = new Date(dateStr + 'T00:00:00');
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
+
   function isOverdue(dateStr){
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -406,7 +410,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   8. SYSTEMS PANEL — live device diagnostics
+   8. SYSTEMS PANEL
    ========================================================= */
 (function systems(){
   const battery = document.getElementById('sys-battery');
@@ -497,7 +501,7 @@ let handsFreeEnabled = false;
 })();
 
 /* =========================================================
-   11. SETTINGS MODAL (Google Gemini API key entry)
+   11. SETTINGS MODAL
    ========================================================= */
 const GEMINI_KEY_STORAGE = 'jarvis-gemini-api-key';
 let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
@@ -548,7 +552,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   12. COMMS PANEL — chat with Gemini + voice in/out
+   12. COMMS PANEL — Chat + Speech Recognition + Local Command Parsing
    ========================================================= */
 (function comms(){
   const chatLog = document.getElementById('chat-log');
@@ -588,7 +592,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     history.push({ role: 'user', parts: [{ text: userText }] });
     setHudState('thinking');
     try{
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -625,22 +629,21 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
-    
     addMessage('user', text);
     Sound.send();
     input.value = '';
 
-    // 1. Intercept file and folder creation commands
+    // Interception par le processeur de commandes locales (Workplace VFS)
     if (window.processFileCommand) {
       const localResult = await window.processFileCommand(text);
       if (localResult) {
         addMessage('jarvis', localResult);
+        if (typeof window.renderFileTree === 'function') window.renderFileTree();
         if (voiceReplyEnabled) speak(localResult);
-        return; // Intercepted successfully, skip Gemini API request
+        return; // Interrompt l'envoi vers Gemini si une commande locale est exécutée
       }
     }
 
-    // 2. Fallback to Gemini AI if not a file creation request
     sendToGemini(text);
   });
 
@@ -692,42 +695,22 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Voice output (Speech Synthesis with Enhanced Masculine Voice) ---- */
+  /* ---- Voice output (Speech Synthesis) ---- */
   function speak(text){
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-
     const utter = new SpeechSynthesisUtterance(text);
-
-    // Fine-tune rate and pitch for a natural, deep cadence
-    utter.rate = 0.95;
-    utter.pitch = 0.8;
-
-    // Search available voices for high-quality masculine presets
-    const voices = window.speechSynthesis.getVoices();
-    const maleVoice = voices.find(v => 
-      v.lang.startsWith('en') && 
-      (v.name.includes('Guy') || v.name.includes('David') || v.name.includes('Mark') || v.name.includes('George') || v.name.includes('Male') || v.name.includes('Natural'))
-    );
-
-    if (maleVoice) {
-      utter.voice = maleVoice;
-    }
-
+    utter.rate = 1.02;
+    utter.pitch = 0.9;
     utter.onend = () => {
       if (handsFreeEnabled && recognizer && !recognizing && !userStoppedMic){
         recognizer.start();
       }
     };
-
     window.speechSynthesis.speak(utter);
   }
-
-  // Pre-load system voices (Chrome / Edge optimization)
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-  }
 })();
+
 /* =========================================================
    13. BROWSER VIRTUAL FILE SYSTEM (IndexedDB Storage)
    ========================================================= */
@@ -748,7 +731,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       };
       request.onsuccess = (e) => {
         db = e.target.result;
-        renderFileTree();
+        window.renderFileTree();
         resolve(db);
       };
       request.onerror = (e) => reject(e.target.error);
@@ -757,13 +740,13 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
   function saveItem(path, type, content = '') {
     return new Promise((resolve, reject) => {
-      if (!db) return reject('DB not initialized');
+      if (!db) return reject(new Error('DB not initialized'));
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       const record = { path, type, content, createdAt: new Date().toISOString() };
       const req = store.put(record);
       req.onsuccess = () => {
-        renderFileTree();
+        window.renderFileTree();
         resolve(record);
       };
       req.onerror = (e) => reject(e.target.error);
@@ -781,7 +764,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
   }
 
-  async function renderFileTree() {
+  window.renderFileTree = async function() {
     const container = document.getElementById('file-tree');
     if (!container) return;
 
@@ -804,7 +787,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
 
     container.appendChild(list);
-  }
+  };
 
   async function createVirtualItem(name, isProject = false) {
     const folderPath = isProject ? `Projects/${name}` : `Folders/${name}`;
@@ -820,15 +803,15 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
       if (typeof Sound !== 'undefined') Sound.taskDone();
       return isProject 
-        ? `Project '${name}' created and saved in browser storage with standard web files.`
-        : `Folder '${name}' created and saved in browser storage.`;
+        ? `Project '${name}' created and saved in browser storage with standard web files, sir.`
+        : `Folder '${name}' created and saved in browser storage, sir.`;
     } catch (err) {
       if (typeof Sound !== 'undefined') Sound.error();
       return `Failed to save to browser storage: ${err.message}`;
     }
   }
 
-  // Parser vocale et texte optimisé (gestion de la ponctuation automatique)
+  // Parser vocale et texte optimisé (Nettoyage de la ponctuation automatique du micro)
   window.processFileCommand = async function (userText) {
     const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
     const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
