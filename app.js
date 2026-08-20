@@ -206,7 +206,7 @@ const Sound = (() => {
   if (navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       pos => fetchWeather(pos.coords.latitude, pos.coords.longitude, 'Current position'),
-      () => fetchWeather(51.5074, -0.1278, 'London (default)'), // fallback if permission denied
+      () => fetchWeather(51.5074, -0.1278, 'London (default)'),
       { timeout: 6000 }
     );
   } else {
@@ -250,7 +250,6 @@ const Sound = (() => {
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      // migrate older saved records (pre-priority/due-date, or pre-kanban) safely
       return parsed.map(t => ({
         id: t.id,
         text: t.text,
@@ -264,7 +263,7 @@ const Sound = (() => {
   }
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(tasksArr)); }
-    catch(err){ /* storage unavailable — tasks won't persist this session */ }
+    catch(err){ /* storage unavailable */ }
   }
 
   let tasksArr = load();
@@ -340,7 +339,6 @@ const Sound = (() => {
           render();
         });
 
-        // ---- Drag and drop (desktop) ----
         li.addEventListener('dragstart', e => {
           draggedId = task.id;
           li.classList.add('dragging');
@@ -361,10 +359,9 @@ const Sound = (() => {
     summary.textContent = total ? `${total} total · ${done} completed` : '';
   }
 
-  // Column drop zones — set up once, columns themselves are static
   columnEls.forEach(col => {
     col.addEventListener('dragover', e => {
-      e.preventDefault(); // required to allow dropping
+      e.preventDefault();
       col.classList.add('drag-over');
     });
     col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
@@ -396,7 +393,6 @@ const Sound = (() => {
     render();
   });
 
-  // Category tabs — switch the single visible column on small screens
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       Sound.click();
@@ -420,7 +416,6 @@ const Sound = (() => {
   const resolution = document.getElementById('sys-resolution');
   const platform = document.getElementById('sys-platform');
 
-  // Battery (Chrome/Edge only — feature detect gracefully)
   if ('getBattery' in navigator){
     navigator.getBattery().then(b => {
       function update(){
@@ -436,16 +431,12 @@ const Sound = (() => {
     charging.textContent = '—';
   }
 
-  // Online/offline
   function updateOnline(){ online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
   updateOnline();
   window.addEventListener('online', updateOnline);
   window.addEventListener('offline', updateOnline);
 
-  // Connection type (Chrome/Edge only)
   connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
-
-  // Display + platform
   resolution.textContent = `${window.screen.width}×${window.screen.height}`;
   platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
 })();
@@ -489,7 +480,6 @@ let handsFreeEnabled = false;
     voiceReplyEnabled = on;
     voiceToggle.classList.toggle('on', on);
     voiceToggle.setAttribute('aria-pressed', on);
-    // hands-free needs spoken replies to know when to listen again
     if (!on && handsFreeEnabled) setHandsFree(false);
   }
   function setHandsFree(on){
@@ -497,7 +487,7 @@ let handsFreeEnabled = false;
     handsFreeToggle.classList.toggle('on', on);
     handsFreeToggle.setAttribute('aria-pressed', on);
     handsFreeHint.style.display = on ? 'block' : 'none';
-    if (on && !voiceReplyEnabled) setVoice(true); // loop requires voice replies on
+    if (on && !voiceReplyEnabled) setVoice(true);
   }
 
   soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
@@ -507,11 +497,10 @@ let handsFreeEnabled = false;
 })();
 
 /* =========================================================
-   11. SETTINGS MODAL (API key entry)
-   Key is stored ONLY in a JS variable — never persisted to
-   disk or browser storage. It is lost on refresh by design.
+   11. SETTINGS MODAL (Google Gemini API key entry)
    ========================================================= */
-let apiKey = '';
+const GEMINI_KEY_STORAGE = 'jarvis-gemini-api-key';
+let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
 (function settingsModal(){
   const modal = document.getElementById('settings-modal');
@@ -526,6 +515,16 @@ let apiKey = '';
   const chatHint = document.getElementById('chat-hint');
   const sysApiStatus = document.getElementById('sys-api-status');
 
+  function refreshStatusUI(){
+    if (apiKey){
+      chatHint.style.display = 'none';
+      sysApiStatus.textContent = 'Key saved in this browser';
+    } else {
+      chatHint.style.display = 'block';
+      sysApiStatus.textContent = 'Not set';
+    }
+  }
+
   function open(){ modal.classList.add('open'); input.value = apiKey; input.focus(); }
   function close(){ modal.classList.remove('open'); }
 
@@ -537,18 +536,19 @@ let apiKey = '';
     apiKey = input.value.trim();
     Sound.click();
     if (apiKey){
-      chatHint.style.display = 'none';
-      sysApiStatus.textContent = 'Key set (session only)';
+      localStorage.setItem(GEMINI_KEY_STORAGE, apiKey);
     } else {
-      chatHint.style.display = 'block';
-      sysApiStatus.textContent = 'Not set';
+      localStorage.removeItem(GEMINI_KEY_STORAGE);
     }
+    refreshStatusUI();
     close();
   });
+
+  refreshStatusUI();
 })();
 
 /* =========================================================
-   12. COMMS PANEL — chat with Claude + voice in/out
+   12. COMMS PANEL — chat with Gemini + voice in/out
    ========================================================= */
 (function comms(){
   const chatLog = document.getElementById('chat-log');
@@ -559,7 +559,7 @@ let apiKey = '';
   const hudCore = document.getElementById('hud-core');
   const hudStatus = document.getElementById('hud-status');
 
-  let history = []; // { role: 'user'|'assistant', content: string }
+  let history = [];
 
   function addMessage(who, text){
     chatEmpty.style.display = 'none';
@@ -580,27 +580,24 @@ let apiKey = '';
       : 'READY';
   }
 
-  async function sendToClaude(userText){
+  async function sendToGemini(userText){
     if (!apiKey){
-      addMessage('system', 'No API key set. Open Settings (gear icon) and add your Anthropic API key to enable live responses.');
+      addMessage('system', 'No API key set. Open Settings (gear icon) and add your Google AI Studio API key to enable live responses.');
       return;
     }
-    history.push({ role: 'user', content: userText });
+    history.push({ role: 'user', parts: [{ text: userText }] });
     setHudState('thinking');
     try{
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
-          system: 'You are JARVIS, a courteous and efficient personal AI assistant. Keep replies concise and address the user as "sir" occasionally, in the style of a helpful sci-fi assistant, without being overly theatrical.',
-          messages: history
+          contents: history,
+          systemInstruction: {
+            parts: [{ text: 'You are JARVIS, a courteous and efficient personal AI assistant. Keep replies concise and address the user as "sir" occasionally, in the style of a helpful sci-fi assistant, without being overly theatrical.' }]
+          },
+          generationConfig: { maxOutputTokens: 1024 }
         })
       });
       if (!res.ok){
@@ -608,8 +605,11 @@ let apiKey = '';
         throw new Error(errData?.error?.message || `Request failed (${res.status})`);
       }
       const data = await res.json();
-      const reply = data.content.map(block => block.text || '').join('').trim();
-      history.push({ role: 'assistant', content: reply });
+      const reply = (data.candidates?.[0]?.content?.parts || [])
+        .map(part => part.text || '')
+        .join('')
+        .trim() || '(Empty response)';
+      history.push({ role: 'model', parts: [{ text: reply }] });
       addMessage('jarvis', reply);
       Sound.receive();
       if (voiceReplyEnabled) speak(reply);
@@ -628,13 +628,14 @@ let apiKey = '';
     addMessage('user', text);
     Sound.send();
     input.value = '';
-    sendToClaude(text);
+    sendToGemini(text);
   });
 
   /* ---- Voice input (Web Speech API) ---- */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognizing = false;
   let recognizer = null;
+  let userStoppedMic = false;
 
   if (SpeechRecognition){
     recognizer = new SpeechRecognition();
@@ -665,7 +666,7 @@ let apiKey = '';
 
     micBtn.addEventListener('click', () => {
       if (recognizing){
-        userStoppedMic = true; // manual stop always breaks the hands-free loop
+        userStoppedMic = true;
         recognizer.stop();
         return;
       }
@@ -678,8 +679,6 @@ let apiKey = '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  let userStoppedMic = false;
-
   /* ---- Voice output (Speech Synthesis) ---- */
   function speak(text){
     if (!('speechSynthesis' in window)) return;
@@ -687,8 +686,6 @@ let apiKey = '';
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.02;
     utter.pitch = 0.9;
-    // Hands-free loop: once JARVIS finishes talking, start listening again
-    // automatically — unless the user manually stopped the mic.
     utter.onend = () => {
       if (handsFreeEnabled && recognizer && !recognizing && !userStoppedMic){
         recognizer.start();
