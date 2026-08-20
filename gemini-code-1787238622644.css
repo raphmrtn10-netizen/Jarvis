@@ -1,0 +1,6 @@
+body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+.container { display: flex; flex-direction: column; gap: 12px; }
+textarea, input, button { padding: 12px; font-size: 1rem; border-radius: 6px; border: 1px solid #ccc; }
+button { background-color: #0066cc; color: white; cursor: pointer; border: none; font-weight: bold; }
+button:hover { background-color: #0052a3; }
+.status-box { background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #0066cc; }
