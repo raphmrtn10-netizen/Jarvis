@@ -679,18 +679,39 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Voice output (Speech Synthesis) ---- */
+  /* ---- Voice output (Speech Synthesis with Enhanced Masculine Voice) ---- */
   function speak(text){
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
+
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.02;
-    utter.pitch = 0.9;
+
+    // Fine-tune rate and pitch for a natural, deep cadence
+    utter.rate = 0.95;
+    utter.pitch = 0.8;
+
+    // Search available voices for high-quality masculine presets
+    const voices = window.speechSynthesis.getVoices();
+    const maleVoice = voices.find(v => 
+      v.lang.startsWith('en') && 
+      (v.name.includes('Guy') || v.name.includes('David') || v.name.includes('Mark') || v.name.includes('George') || v.name.includes('Male') || v.name.includes('Natural'))
+    );
+
+    if (maleVoice) {
+      utter.voice = maleVoice;
+    }
+
     utter.onend = () => {
       if (handsFreeEnabled && recognizer && !recognizing && !userStoppedMic){
         recognizer.start();
       }
     };
+
     window.speechSynthesis.speak(utter);
+  }
+
+  // Pre-load system voices (Chrome / Edge optimization)
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
   }
 })();
