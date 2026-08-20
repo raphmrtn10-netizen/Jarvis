@@ -18,7 +18,7 @@ const Sound = (() => {
   function ensureContext(){
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
-  }const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+ 
 
   function tone(freq, duration, type = 'sine', gain = 0.05, delay = 0){
     if (!enabled) return;
