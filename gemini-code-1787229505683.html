@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis HUD</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <h2>Jarvis Control Interface</h2>
+
+    <!-- API Key Input -->
+    <label for="apiKeyInput">Gemini API Key:</label>
+    <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key..." />
+
+    <!-- Prompt Input -->
+    <label for="promptInput">Ask Jarvis:</label>
+    <textarea id="promptInput" rows="3" placeholder="Type your command here..."></textarea>
+
+    <!-- Trigger Button -->
+    <button id="sendBtn">Execute</button>
+
+    <!-- Response Display -->
+    <h3>Response:</h3>
+    <div id="outputBox">Waiting for input...</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
