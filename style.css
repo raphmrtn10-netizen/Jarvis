@@ -706,3 +706,42 @@ footer{
   flex-wrap:wrap;
   gap:6px;
 }
+/* =========================================================
+   VIRTUAL FILE EXPLORER STYLES
+   ========================================================= */
+#file-explorer {
+  margin-top: 15px;
+  padding: 15px;
+}
+
+.file-tree {
+  margin-top: 10px;
+  font-family: monospace;
+}
+
+.file-tree .empty-msg {
+  color: var(--text-lo);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.fs-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.fs-item {
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text-hi, #fff);
+}
+
+.fs-item.folder {
+  font-weight: bold;
+}
+
+.fs-item.file {
+  padding-left: 20px;
+  opacity: 0.85;
+}
