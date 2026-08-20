@@ -728,3 +728,120 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
   }
 })();
+/* =========================================================
+   13. BROWSER VIRTUAL FILE SYSTEM (IndexedDB Storage)
+   ========================================================= */
+(function virtualFS() {
+  const DB_NAME = 'JarvisVirtualFS';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'files';
+  let db = null;
+
+  function initDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains(STORE_NAME)) {
+          database.createObjectStore(STORE_NAME, { keyPath: 'path' });
+        }
+      };
+      request.onsuccess = (e) => {
+        db = e.target.result;
+        renderFileTree();
+        resolve(db);
+      };
+      request.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function saveItem(path, type, content = '') {
+    return new Promise((resolve, reject) => {
+      if (!db) return reject('DB not initialized');
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const record = { path, type, content, createdAt: new Date().toISOString() };
+      const req = store.put(record);
+      req.onsuccess = () => {
+        renderFileTree();
+        resolve(record);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  function getAllItems() {
+    return new Promise((resolve, reject) => {
+      if (!db) return resolve([]);
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async function renderFileTree() {
+    const container = document.getElementById('file-tree');
+    if (!container) return;
+
+    const items = await getAllItems();
+    if (items.length === 0) {
+      container.innerHTML = '<p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS to create one, sir.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    const list = document.createElement('ul');
+    list.className = 'fs-list';
+
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = `fs-item ${item.type}`;
+      const icon = item.type === 'folder' ? '📁' : '📄';
+      li.innerHTML = `<span>${icon} ${item.path}</span>`;
+      list.appendChild(li);
+    });
+
+    container.appendChild(list);
+  }
+
+  async function createVirtualItem(name, isProject = false) {
+    const folderPath = isProject ? `Projects/${name}` : `Folders/${name}`;
+    
+    try {
+      await saveItem(folderPath, 'folder');
+
+      if (isProject) {
+        await saveItem(`${folderPath}/index.html`, 'file', '<!DOCTYPE html>\n<html>\n<head><title>' + name + '</title></head>\n<body></body>\n</html>');
+        await saveItem(`${folderPath}/style.css`, 'file', '/* Styles for ' + name + ' */');
+        await saveItem(`${folderPath}/app.js`, 'file', '// Scripts for ' + name);
+      }
+
+      if (typeof Sound !== 'undefined') Sound.taskDone();
+      return isProject 
+        ? `Project '${name}' created and saved in browser storage with standard web files.`
+        : `Folder '${name}' created and saved in browser storage.`;
+    } catch (err) {
+      if (typeof Sound !== 'undefined') Sound.error();
+      return `Failed to save to browser storage: ${err.message}`;
+    }
+  }
+
+  // Parser vocale et texte optimisé (gestion de la ponctuation automatique)
+  window.processFileCommand = async function (userText) {
+    const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
+    const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
+
+    if (match) {
+      const type = match[1];
+      const name = match[2].trim().replace(/\s+/g, '-');
+      const isProject = type === 'project';
+      return await createVirtualItem(name, isProject);
+    }
+
+    return null;
+  };
+
+  initDB();
+})();
