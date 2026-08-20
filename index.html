@@ -25,13 +25,6 @@
 
 <!-- Ambient particle background -->
 <canvas id="particle-field"></canvas>
-  <!-- Virtual File Explorer Panel -->
-<div id="file-explorer" class="hud-panel">
-  <h3>📁 LOCAL STORAGE WORKSPACE</h3>
-  <div id="file-tree" class="file-tree">
-    <p class="empty-msg">No folders or projects created yet.</p>
-  </div>
-</div>
 
 <div class="shell" id="shell">
 
@@ -57,6 +50,7 @@
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="comms">COMMS</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="tasks">TASKS</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="systems">SYSTEMS</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="workplace">WORKPLACE</button>
   </nav>
 
   <!-- ===================== Dashboard panel ===================== -->
@@ -230,6 +224,18 @@
         <button class="icon-btn" id="sys-settings-btn" style="width:auto; padding:0 12px; height:30px; margin-top:10px; font-family:var(--font-display); font-size:10px; letter-spacing:0.1em;">MANAGE</button>
       </div>
 
+    </div>
+  </section>
+
+  <!-- ===================== Workplace panel ===================== -->
+  <section class="panel" id="panel-workplace" role="tabpanel">
+    <div class="tasks-wrap">
+      <h2>Workplace Directory</h2>
+      <p style="font-size:13px; color:var(--text-lo); margin-bottom: 20px;">Virtual File System & Project Storage</p>
+      
+      <div id="file-tree" class="file-tree">
+        <p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS to create one, sir.</p>
+      </div>
     </div>
   </section>
 
