@@ -621,13 +621,26 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
+    
     addMessage('user', text);
     Sound.send();
     input.value = '';
+
+    // 1. Intercept file and folder creation commands
+    if (window.processFileCommand) {
+      const localResult = await window.processFileCommand(text);
+      if (localResult) {
+        addMessage('jarvis', localResult);
+        if (voiceReplyEnabled) speak(localResult);
+        return; // Intercepted successfully, skip Gemini API request
+      }
+    }
+
+    // 2. Fallback to Gemini AI if not a file creation request
     sendToGemini(text);
   });
 
