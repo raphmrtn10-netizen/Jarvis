@@ -745,3 +745,51 @@ footer{
   padding-left: 20px;
   opacity: 0.85;
 }
+/* =========================================================
+   WORKPLACE TAB STYLES
+   ========================================================= */
+#panel-workplace .tasks-wrap {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+#panel-workplace .file-tree {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  min-height: 250px;
+}
+
+.fs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.fs-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: monospace;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fs-item.folder {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.fs-item.file {
+  padding-left: 32px;
+  color: var(--text-hi);
+  opacity: 0.9;
+}
+
+.empty-msg {
+  color: var(--text-lo);
+  font-style: italic;
+  font-size: 13px;
+}
