@@ -105,6 +105,25 @@ body {
   display: block !important;
 }
 
+.welcome-banner {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.welcome-banner h1 {
+  font-size: 1.5rem;
+  letter-spacing: 4px;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.welcome-banner .subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
 .panel-title {
   font-size: 1.2rem;
   letter-spacing: 2px;
@@ -186,6 +205,16 @@ body {
   max-width: 320px;
   user-select: none;
   transition: all 0.2s ease;
+}
+
+.hud-widget.is-dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
+.hud-widget.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 15px rgba(79, 216, 230, 0.4);
 }
 
 .drag-handle {
@@ -328,6 +357,9 @@ body {
   font-family: monospace;
   font-size: 0.85rem;
   color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .comms-input-form {
@@ -446,4 +478,33 @@ body {
 .icon-btn {
   padding: 4px 8px;
   font-size: 0.8rem;
+}
+
+/* =========================================================
+   SYSTEMS PANEL
+   ========================================================= */
+.sys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.sys-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--accent-dim);
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.sys-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.status-val {
+  margin: 0;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--text-main);
 }
