@@ -94,7 +94,7 @@ const Sound = (() => {
    ========================================================= */
 (function circuitBoard(){
   const canvas = document.getElementById('particle-field');
-  if (reducedMotion){ canvas.remove(); return; }
+  if (!canvas || reducedMotion){ if (canvas) canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
   const GRID = 48;
   let w, h, traces, signals;
@@ -271,9 +271,9 @@ const Sound = (() => {
   const zoneEl = document.getElementById('clock-zone');
   function tick(){
     const now = new Date();
-    timeEl.textContent = now.toLocaleTimeString([], { hour12: false });
-    dateEl.textContent = now.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
-    zoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour12: false });
+    if (dateEl) dateEl.textContent = now.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
+    if (zoneEl) zoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
   tick();
   setInterval(tick, 1000);
@@ -286,6 +286,7 @@ const Sound = (() => {
   const locEl = document.getElementById('weather-loc');
   const tempEl = document.getElementById('weather-temp');
   const condEl = document.getElementById('weather-cond');
+  if (!locEl || !tempEl || !condEl) return;
 
   const WMO = {
     0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
@@ -379,6 +380,7 @@ const Sound = (() => {
   let nextId = tasksArr.reduce((max, t) => Math.max(max, t.id), 0) + 1;
   let draggedId = null;
 
+  // Global Add Task function accessible by Comms parser
   window.addNewTask = function(text, priority = 'medium', due = null) {
     tasksArr.push({
       id: nextId++,
@@ -409,7 +411,7 @@ const Sound = (() => {
 
   function formatDue(dateStr){
     const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function isOverdue(dateStr){
@@ -420,10 +422,11 @@ const Sound = (() => {
 
   function render(){
     STATUSES.forEach(status => {
+      if (!lists[status]) return;
       const items = tasksArr.filter(t => t.status === status);
       lists[status].innerHTML = '';
-      emptyMsgs[status].style.display = items.length ? 'none' : 'block';
-      counts[status].textContent = items.length;
+      if (emptyMsgs[status]) emptyMsgs[status].style.display = items.length ? 'none' : 'block';
+      if (counts[status]) counts[status].textContent = items.length;
 
       items.forEach(task => {
         const idx = STATUSES.indexOf(status);
@@ -480,7 +483,7 @@ const Sound = (() => {
 
     const total = tasksArr.length;
     const done = tasksArr.filter(t => t.status === 'done').length;
-    summary.textContent = total ? `${total} total · ${done} completed` : '';
+    if (summary) summary.textContent = total ? `${total} total · ${done} completed` : '';
   }
 
   columnEls.forEach(col => {
@@ -498,23 +501,25 @@ const Sound = (() => {
     });
   });
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    window.addNewTask(text, priorityInput.value, dueInput.value || null);
-    input.value = '';
-    dueInput.value = '';
-    priorityInput.value = 'medium';
-    Sound.click();
-  });
+  if (form) {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      window.addNewTask(text, priorityInput.value, dueInput.value || null);
+      input.value = '';
+      if (dueInput) dueInput.value = '';
+      if (priorityInput) priorityInput.value = 'medium';
+      Sound.click();
+    });
+  }
 
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       Sound.click();
       tabButtons.forEach(b => b.setAttribute('aria-selected', 'false'));
       btn.setAttribute('aria-selected', 'true');
-      kanban.dataset.active = btn.dataset.status;
+      if (kanban) kanban.dataset.active = btn.dataset.status;
     });
   });
 
@@ -532,7 +537,7 @@ const Sound = (() => {
   const resolution = document.getElementById('sys-resolution');
   const platform = document.getElementById('sys-platform');
 
-  if ('getBattery' in navigator){
+  if ('getBattery' in navigator && battery && charging){
     navigator.getBattery().then(b => {
       function update(){
         battery.textContent = `${Math.round(b.level * 100)}%`;
@@ -542,19 +547,19 @@ const Sound = (() => {
       b.addEventListener('levelchange', update);
       b.addEventListener('chargingchange', update);
     });
-  } else {
+  } else if (battery && charging) {
     battery.textContent = 'Not supported';
     charging.textContent = '—';
   }
 
-  function updateOnline(){ online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
+  function updateOnline(){ if (online) online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
   updateOnline();
   window.addEventListener('online', updateOnline);
   window.addEventListener('offline', updateOnline);
 
-  connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
-  resolution.textContent = `${window.screen.width}×${window.screen.height}`;
-  platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
+  if (connType) connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
+  if (resolution) resolution.textContent = `${window.screen.width}×${window.screen.height}`;
+  if (platform) platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
 })();
 
 /* =========================================================
@@ -587,29 +592,35 @@ let handsFreeEnabled = false;
 
   function setSound(on){
     Sound.setEnabled(on);
-    soundToggle.classList.toggle('on', on);
-    soundToggle.setAttribute('aria-pressed', on);
-    muteHeaderBtn.classList.toggle('active', on);
+    if (soundToggle) {
+      soundToggle.classList.toggle('on', on);
+      soundToggle.setAttribute('aria-pressed', on);
+    }
+    if (muteHeaderBtn) muteHeaderBtn.classList.toggle('active', on);
     if (on) Sound.click();
   }
   function setVoice(on){
     voiceReplyEnabled = on;
-    voiceToggle.classList.toggle('on', on);
-    voiceToggle.setAttribute('aria-pressed', on);
+    if (voiceToggle) {
+      voiceToggle.classList.toggle('on', on);
+      voiceToggle.setAttribute('aria-pressed', on);
+    }
     if (!on && handsFreeEnabled) setHandsFree(false);
   }
   function setHandsFree(on){
     handsFreeEnabled = on;
-    handsFreeToggle.classList.toggle('on', on);
-    handsFreeToggle.setAttribute('aria-pressed', on);
-    handsFreeHint.style.display = on ? 'block' : 'none';
+    if (handsFreeToggle) {
+      handsFreeToggle.classList.toggle('on', on);
+      handsFreeToggle.setAttribute('aria-pressed', on);
+    }
+    if (handsFreeHint) handsFreeHint.style.display = on ? 'block' : 'none';
     if (on && !voiceReplyEnabled) setVoice(true);
   }
 
-  soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
-  muteHeaderBtn.addEventListener('click', () => setSound(!Sound.isEnabled()));
-  voiceToggle.addEventListener('click', () => setVoice(!voiceReplyEnabled));
-  handsFreeToggle.addEventListener('click', () => setHandsFree(!handsFreeEnabled));
+  if (soundToggle) soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  if (muteHeaderBtn) muteHeaderBtn.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  if (voiceToggle) voiceToggle.addEventListener('click', () => setVoice(!voiceReplyEnabled));
+  if (handsFreeToggle) handsFreeToggle.addEventListener('click', () => setHandsFree(!handsFreeEnabled));
 })();
 
 /* =========================================================
@@ -633,38 +644,40 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
   function refreshStatusUI(){
     if (apiKey){
-      chatHint.style.display = 'none';
-      sysApiStatus.textContent = 'Key saved in this browser';
+      if (chatHint) chatHint.style.display = 'none';
+      if (sysApiStatus) sysApiStatus.textContent = 'Key saved in this browser';
     } else {
-      chatHint.style.display = 'block';
-      sysApiStatus.textContent = 'Not set';
+      if (chatHint) chatHint.style.display = 'block';
+      if (sysApiStatus) sysApiStatus.textContent = 'Not set';
     }
   }
 
-  function open(){ modal.classList.add('open'); input.value = apiKey; input.focus(); }
-  function close(){ modal.classList.remove('open'); }
+  function open(){ if (modal) modal.classList.add('open'); if (input) { input.value = apiKey; input.focus(); } }
+  function close(){ if (modal) modal.classList.remove('open'); }
 
   openBtns.forEach(btn => btn && btn.addEventListener('click', open));
-  cancelBtn.addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', close);
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) close(); });
 
-  saveBtn.addEventListener('click', () => {
-    apiKey = input.value.trim();
-    Sound.click();
-    if (apiKey){
-      localStorage.setItem(GEMINI_KEY_STORAGE, apiKey);
-    } else {
-      localStorage.removeItem(GEMINI_KEY_STORAGE);
-    }
-    refreshStatusUI();
-    close();
-  });
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      apiKey = input ? input.value.trim() : '';
+      Sound.click();
+      if (apiKey){
+        localStorage.setItem(GEMINI_KEY_STORAGE, apiKey);
+      } else {
+        localStorage.removeItem(GEMINI_KEY_STORAGE);
+      }
+      refreshStatusUI();
+      close();
+    });
+  }
 
   refreshStatusUI();
 })();
 
 /* =========================================================
-   12. COMMS PANEL — Chat + Speech Recognition + Local Command Parsing
+   12. COMMS PANEL — Chat + Speech Recognition + Speech Synthesis
    ========================================================= */
 (function comms(){
   const chatLog = document.getElementById('chat-log');
@@ -678,23 +691,27 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   let history = [];
 
   function addMessage(who, text){
-    chatEmpty.style.display = 'none';
+    if (chatEmpty) chatEmpty.style.display = 'none';
     const div = document.createElement('div');
     div.className = `msg ${who}`;
     const label = who === 'user' ? 'YOU' : who === 'jarvis' ? 'JARVIS' : 'SYSTEM';
     div.innerHTML = `<div class="who">${label}</div><div class="bubble"></div>`;
     div.querySelector('.bubble').textContent = text;
-    chatLog.appendChild(div);
-    chatLog.scrollTop = chatLog.scrollHeight;
+    if (chatLog) {
+      chatLog.appendChild(div);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
   }
 
   function setHudState(state){
-    hudCore.classList.remove('listening', 'thinking', 'speaking');
-    if (state) hudCore.classList.add(state);
-    hudStatus.textContent = state === 'listening' ? 'LISTENING'
-      : state === 'thinking' ? 'THINKING'
-      : state === 'speaking' ? 'RESPONDING'
-      : 'READY';
+    if (hudCore) hudCore.classList.remove('listening', 'thinking', 'speaking');
+    if (hudCore && state) hudCore.classList.add(state);
+    if (hudStatus) {
+      hudStatus.textContent = state === 'listening' ? 'LISTENING'
+        : state === 'thinking' ? 'THINKING'
+        : state === 'speaking' ? 'RESPONDING'
+        : 'READY';
+    }
   }
 
   async function sendToGemini(userText){
@@ -742,33 +759,36 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    addMessage('user', text);
-    Sound.send();
-    input.value = '';
+  if (form) {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addMessage('user', text);
+      Sound.send();
+      input.value = '';
 
-    if (window.processLocalCommand) {
-      const localResult = await window.processLocalCommand(text);
-      if (localResult) {
-        addMessage('jarvis', localResult);
-        if (voiceReplyEnabled) speak(localResult);
-        return;
+      // Check local command parser first
+      if (typeof window.processLocalCommand === 'function') {
+        const localResult = await window.processLocalCommand(text);
+        if (localResult) {
+          addMessage('jarvis', localResult);
+          if (voiceReplyEnabled) speak(localResult);
+          return;
+        }
       }
-    }
 
-    sendToGemini(text);
-  });
+      sendToGemini(text);
+    });
+  }
 
-  /* ---- Voice input (Web Speech API) ---- */
+  /* ---- Voice Input (Web Speech API) ---- */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognizing = false;
   let recognizer = null;
   let userStoppedMic = false;
 
-  if (SpeechRecognition){
+  if (SpeechRecognition && micBtn){
     recognizer = new SpeechRecognition();
     recognizer.continuous = false;
     recognizer.interimResults = false;
@@ -805,35 +825,47 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       userStoppedMic = false;
       recognizer.start();
     });
-  } else {
+  } else if (micBtn) {
     micBtn.disabled = true;
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Male Voice Selection Logic ---- */
-  function getMaleVoice() {
+  /* ---- Male Voice Selection Engine ---- */
+  let selectedVoice = null;
+
+  function loadMaleVoice() {
+    if (!('speechSynthesis' in window)) return;
     const voices = window.speechSynthesis.getVoices();
-    return voices.find(v => v.lang.startsWith('en') && (
-      v.name.includes('Male') || 
-      v.name.includes('David') || 
-      v.name.includes('George') || 
-      v.name.includes('Alex') || 
-      v.name.includes('Daniel')
-    )) || voices.find(v => v.lang.startsWith('en')) || null;
+    if (!voices.length) return;
+
+    // Search by known masculine voice names across OS platforms (Windows, macOS, Android, Chrome/Edge)
+    selectedVoice = voices.find(v => v.lang.startsWith('en') && (
+      /\b(male|david|daniel|george|alex|james|mark|guy|richard|stefan|google us english)\b/i.test(v.name)
+    )) 
+    // Fallback: Pick any non-female voice
+    || voices.find(v => v.lang.startsWith('en') && !/\b(female|zira|hazel|susan|victoria|catherine|samantha|karen)\b/i.test(v.name)) 
+    // Final fallback: First available English voice
+    || voices.find(v => v.lang.startsWith('en')) 
+    || voices[0];
   }
 
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = () => { getMaleVoice(); };
+    loadMaleVoice();
+    window.speechSynthesis.onvoiceschanged = loadMaleVoice;
   }
 
   function speak(text){
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
+
     const utter = new SpeechSynthesisUtterance(text);
-    const maleVoice = getMaleVoice();
-    if (maleVoice) utter.voice = maleVoice;
+    
+    if (!selectedVoice) loadMaleVoice();
+    if (selectedVoice) utter.voice = selectedVoice;
+
     utter.rate = 1.0;
-    utter.pitch = 0.85; // Lower pitch to enforce masculine tone
+    utter.pitch = 0.8; // Deepen voice pitch
+    
     utter.onstart = () => setHudState('speaking');
     utter.onend = () => {
       setHudState(null);
@@ -841,12 +873,13 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
         recognizer.start();
       }
     };
+
     window.speechSynthesis.speak(utter);
   }
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM + FILE VIEWER & EDITOR
+   13. BROWSER VIRTUAL FILE SYSTEM + LOCAL COMMAND PARSER
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -989,42 +1022,50 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  /* Extended Command Parser for Tasks, Priorities, and Files */
+  /* Robust Command Parser for Tasks, Priorities, and Files */
   window.processLocalCommand = async function (userText) {
-    const text = userText.trim();
+    const rawText = userText.trim();
+    const cleanText = rawText.toLowerCase().replace(/[.!?]+$/, '');
 
-    // Catch 'title:', 'task:', 'add task', or 'create task'
-    const isTaskCmd = /^(?:title:|task:|add task|create task)/i.test(text);
+    // 1. Task Creation Parsing
+    const isTask = /^(?:title:|task:|add task|create task)/i.test(rawText) || 
+                   cleanText.includes('task') || 
+                   cleanText.includes('priority:') || 
+                   cleanText.includes('deadline:');
 
-    if (isTaskCmd) {
-      let taskTitle = text.replace(/^(?:title:|task:|add task|create task)\s*/i, '');
+    if (isTask) {
+      let taskTitle = rawText
+        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?(?:title:|task:|add task|create task)\s*/i, '')
+        .trim();
 
-      // Parse optional Priority: and Deadline: parameters
       let priority = 'medium';
       let due = null;
 
+      // Extract Priority
       const prioMatch = taskTitle.match(/priority:\s*(low|medium|high)/i);
       if (prioMatch) {
         priority = prioMatch[1].toLowerCase();
         taskTitle = taskTitle.replace(/priority:\s*(low|medium|high)/i, '');
       }
 
-      const dueMatch = taskTitle.match(/deadline:\s*([0-9\-\/]+)/i);
+      // Extract Deadline / Due Date
+      const dueMatch = taskTitle.match(/(?:deadline|due):\s*([0-9\-\/]+)/i);
       if (dueMatch) {
         due = dueMatch[1].replace(/\//g, '-');
-        taskTitle = taskTitle.replace(/deadline:\s*([0-9\-\/]+)/i, '');
+        taskTitle = taskTitle.replace(/(?:deadline|due):\s*([0-9\-\/]+)/i, '');
       }
 
-      taskTitle = taskTitle.trim();
+      // Final cleanup of residual label strings
+      taskTitle = taskTitle.replace(/\b(priority|deadline|due):\s*/gi, '').trim();
 
-      if (taskTitle && window.addNewTask) {
+      if (taskTitle && typeof window.addNewTask === 'function') {
         window.addNewTask(taskTitle, priority, due);
-        return `Task '${taskTitle}' added to board with priority ${priority}${due ? ' and due date ' + due : ''}, sir.`;
+        return `Task '${taskTitle}' added to your Kanban board (Priority: ${priority}${due ? ', Due: ' + due : ''}), sir.`;
       }
     }
 
-    // Catch Folder/Project creation
-    const fileMatch = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
+    // 2. Folder & Project Parsing
+    const fileMatch = cleanText.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
     if (fileMatch) {
       const type = fileMatch[1];
       const name = fileMatch[2].trim().replace(/\s+/g, '-');
@@ -1034,7 +1075,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       return res;
     }
 
-    return null;
+    return null; // Passes through to Gemini API if not matched locally
   };
 
   initDB();
