@@ -90,46 +90,91 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   3. PARTICLE FIELD
+   3. CIRCUIT LED FIELD
+   Small glowing points that travel along the background grid
+   lines (48px spacing, matching the CSS grid) — like current
+   moving through a circuit board. Colors track the active
+   theme automatically.
    ========================================================= */
-(function particles(){
+(function circuitLeds(){
   const canvas = document.getElementById('particle-field');
   if (reducedMotion){ canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
-  let w, h, particlesArr;
+  const GRID = 48; // must match body background-size in style.css
+  let w, h, leds;
+
+  function themeColor(varName, fallback){
+    const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return v || fallback;
+  }
+
+  function spawnLed(){
+    const axis = Math.random() < 0.5 ? 'h' : 'v';
+    const speed = (0.7 + Math.random() * 1.3) * (Math.random() < 0.5 ? 1 : -1);
+    const length = 50 + Math.random() * 70;
+    const color = Math.random() < 0.7 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f');
+    if (axis === 'h'){
+      const lineY = Math.round((Math.random() * h) / GRID) * GRID;
+      return { axis, y: lineY, x: speed > 0 ? -length : w + length, speed, length, color };
+    }
+    const lineX = Math.round((Math.random() * w) / GRID) * GRID;
+    return { axis, x: lineX, y: speed > 0 ? -length : h + length, speed, length, color };
+  }
 
   function resize(){
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
   }
-  function makeParticles(){
-    const count = Math.floor((w * h) / 22000);
-    particlesArr = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      r: Math.random() * 1.4 + 0.4,
-      vx: (Math.random() - 0.5) * 0.15,
-      vy: (Math.random() - 0.5) * 0.15,
-      a: Math.random() * 0.4 + 0.1
-    }));
+  function makeLeds(){
+    const count = Math.min(30, Math.max(10, Math.floor((w * h) / 90000)));
+    leds = Array.from({ length: count }, spawnLed);
   }
+
   function tick(){
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(79, 216, 230, 1)';
-    particlesArr.forEach(p => {
-      p.x += p.vx; p.y += p.vy;
-      if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
-      if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
-      ctx.globalAlpha = p.a;
+    ctx.lineCap = 'round';
+
+    leds.forEach(led => {
+      if (led.axis === 'h') led.x += led.speed; else led.y += led.speed;
+
+      const dir = Math.sign(led.speed);
+      const x1 = led.x, y1 = led.y;
+      const x2 = led.axis === 'h' ? led.x - dir * led.length : led.x;
+      const y2 = led.axis === 'h' ? led.y : led.y - dir * led.length;
+
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, led.color);
+      grad.addColorStop(1, 'transparent');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.6;
+      ctx.globalAlpha = 0.8;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // bright head
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = led.color;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = led.color;
+      ctx.beginPath();
+      ctx.arc(x1, y1, 1.6, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
+
+      const offscreen = led.axis === 'h'
+        ? (led.speed > 0 ? led.x - led.length > w : led.x + led.length < 0)
+        : (led.speed > 0 ? led.y - led.length > h : led.y + led.length < 0);
+      if (offscreen) Object.assign(led, spawnLed());
     });
+
     ctx.globalAlpha = 1;
     requestAnimationFrame(tick);
   }
-  window.addEventListener('resize', () => { resize(); makeParticles(); });
-  resize(); makeParticles(); tick();
+
+  window.addEventListener('resize', () => { resize(); makeLeds(); });
+  resize(); makeLeds(); tick();
 })();
 
 /* =========================================================
@@ -577,10 +622,11 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   }
 
   function setHudState(state){
-    hudCore.classList.remove('listening', 'thinking');
+    hudCore.classList.remove('listening', 'thinking', 'speaking');
     if (state) hudCore.classList.add(state);
     hudStatus.textContent = state === 'listening' ? 'LISTENING'
       : state === 'thinking' ? 'THINKING'
+      : state === 'speaking' ? 'RESPONDING'
       : 'READY';
   }
 
@@ -616,11 +662,16 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       history.push({ role: 'model', parts: [{ text: reply }] });
       addMessage('jarvis', reply);
       Sound.receive();
-      if (voiceReplyEnabled) speak(reply);
+      if (voiceReplyEnabled){
+        speak(reply);
+      } else {
+        // No voice output — still give a brief visual reaction to the reply
+        setHudState('speaking');
+        setTimeout(() => setHudState(null), 1000);
+      }
     }catch(err){
       addMessage('system', `Error: ${err.message}`);
       Sound.error();
-    }finally{
       setHudState(null);
     }
   }
@@ -702,7 +753,9 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.02;
     utter.pitch = 0.9;
+    utter.onstart = () => setHudState('speaking');
     utter.onend = () => {
+      setHudState(null);
       if (handsFreeEnabled && recognizer && !recognizing && !userStoppedMic){
         recognizer.start();
       }

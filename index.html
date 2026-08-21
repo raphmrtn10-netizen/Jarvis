@@ -67,18 +67,23 @@
     </aside>
 
     <div class="hud-core" id="hud-core">
+      <div class="hud-sphere" aria-hidden="true">
+        <div class="orbit orbit-a"><span class="orbit-point"></span></div>
+        <div class="orbit orbit-b"><span class="orbit-point"></span></div>
+        <div class="orbit orbit-c"><span class="orbit-point"></span></div>
+      </div>
       <svg viewBox="0 0 200 200">
-        <circle class="ring ring-outer" cx="100" cy="100" r="92"/>
-        <circle class="ring ring-outer" cx="100" cy="100" r="70" opacity="0.5"/>
+        <circle class="ring ring-outer" cx="100" cy="100" r="94"/>
         <g class="ring-tick">
-          <line x1="100" y1="6" x2="100" y2="16"/>
-          <line x1="100" y1="184" x2="100" y2="194"/>
-          <line x1="6" y1="100" x2="16" y2="100"/>
-          <line x1="184" y1="100" x2="194" y2="100"/>
+          <line x1="100" y1="4" x2="100" y2="14"/>
+          <line x1="100" y1="186" x2="100" y2="196"/>
+          <line x1="4" y1="100" x2="14" y2="100"/>
+          <line x1="186" y1="100" x2="196" y2="100"/>
         </g>
-        <circle class="ring ring-sweep" cx="100" cy="100" r="92" stroke-dasharray="40 500" stroke-dashoffset="0"/>
+        <circle class="ring ring-sweep" cx="100" cy="100" r="94" stroke-dasharray="42 550"/>
         <circle class="ring ring-sweep-slow" cx="100" cy="100" r="80"/>
       </svg>
+      <div id="core-blob" aria-hidden="true"></div>
       <div class="core-center">
         <div class="label">STATUS</div>
         <div class="value" id="hud-status">READY</div>
