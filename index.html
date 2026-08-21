@@ -65,6 +65,38 @@
         <span></span><span></span><span></span><span></span>
       </div>
     </aside>
+    <!-- =========================================================
+     PANEL: DASHBOARD
+     ========================================================= -->
+<div id="panel-dashboard" class="hud-panel active">
+  <div class="dashboard-grid">
+    
+    <!-- Focus / Pomodoro Timer -->
+    <div class="hud-widget pomodoro-widget">
+      <div class="widget-header">
+        <span class="widget-title">FOCUS TIMER</span>
+        <span id="pomo-mode" class="pomo-mode-badge">FOCUS</span>
+      </div>
+      <div class="pomo-display">
+        <span id="pomo-time">25:00</span>
+      </div>
+      <div class="pomo-controls">
+        <button id="pomo-toggle-btn" class="hud-btn primary">START</button>
+        <button id="pomo-reset-btn" class="hud-btn secondary">RESET</button>
+      </div>
+    </div>
+
+    <!-- Persistent Daily Notepad -->
+    <div class="hud-widget notepad-widget">
+      <div class="widget-header">
+        <span class="widget-title">SCRATCHPAD</span>
+        <span id="notepad-status" class="notepad-status">SAVED</span>
+      </div>
+      <textarea id="daily-notepad" placeholder="Quick notes, code snippets, or ideas..."></textarea>
+    </div>
+
+  </div>
+</div>
 
     <div class="hud-core" id="hud-core">
       <div class="hud-sphere" aria-hidden="true">
