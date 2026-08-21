@@ -90,91 +90,163 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   3. CIRCUIT LED FIELD
-   Small glowing points that travel along the background grid
-   lines (48px spacing, matching the CSS grid) — like current
-   moving through a circuit board. Colors track the active
-   theme automatically.
+   3. CIRCUIT BOARD FIELD
+   A generated network of PCB-style traces — right-angle paths
+   with junction pads, laid out on the same grid as the CSS
+   background — with small glowing signals traveling along
+   them, like current pulsing through a real circuit board.
+   Colors track the active theme automatically.
    ========================================================= */
-(function circuitLeds(){
+(function circuitBoard(){
   const canvas = document.getElementById('particle-field');
   if (reducedMotion){ canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
   const GRID = 48; // must match body background-size in style.css
-  let w, h, leds;
+  let w, h, traces, signals;
 
   function themeColor(varName, fallback){
     const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
     return v || fallback;
   }
 
-  function spawnLed(){
-    const axis = Math.random() < 0.5 ? 'h' : 'v';
-    const speed = (0.7 + Math.random() * 1.3) * (Math.random() < 0.5 ? 1 : -1);
-    const length = 50 + Math.random() * 70;
-    const color = Math.random() < 0.7 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f');
-    if (axis === 'h'){
-      const lineY = Math.round((Math.random() * h) / GRID) * GRID;
-      return { axis, y: lineY, x: speed > 0 ? -length : w + length, speed, length, color };
+  // ---- Build a network of right-angle trace paths (like copper traces) ----
+  function buildTraces(){
+    const cols = Math.max(4, Math.floor(w / GRID));
+    const rows = Math.max(4, Math.floor(h / GRID));
+    const count = Math.min(22, Math.max(8, Math.floor((w * h) / 130000)));
+    const list = [];
+
+    for (let i = 0; i < count; i++){
+      let x = Math.floor(Math.random() * cols) * GRID;
+      let y = Math.floor(Math.random() * rows) * GRID;
+      const points = [{ x, y }];
+      let horizontal = Math.random() < 0.5;
+      const segments = 3 + Math.floor(Math.random() * 4); // 3–6 turns per trace
+
+      for (let s = 0; s < segments; s++){
+        const runCells = 1 + Math.floor(Math.random() * 3); // 1–3 grid cells per run
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        if (horizontal){
+          x = Math.min(cols * GRID, Math.max(0, x + dir * runCells * GRID));
+        } else {
+          y = Math.min(rows * GRID, Math.max(0, y + dir * runCells * GRID));
+        }
+        points.push({ x, y });
+        horizontal = !horizontal; // right-angle turn each segment
+      }
+
+      // precompute segment lengths + total length for signal interpolation
+      let total = 0;
+      const segLens = [];
+      for (let p = 1; p < points.length; p++){
+        const len = Math.hypot(points[p].x - points[p - 1].x, points[p].y - points[p - 1].y);
+        segLens.push(len);
+        total += len;
+      }
+      if (total > 0) list.push({ points, segLens, total });
     }
-    const lineX = Math.round((Math.random() * w) / GRID) * GRID;
-    return { axis, x: lineX, y: speed > 0 ? -length : h + length, speed, length, color };
+    return list;
+  }
+
+  // Position along a trace at progress t (0–1), used to draw signal pulses
+  function pointAtProgress(trace, t){
+    let dist = Math.max(0, Math.min(1, t)) * trace.total;
+    for (let i = 0; i < trace.segLens.length; i++){
+      const segLen = trace.segLens[i];
+      if (dist <= segLen || i === trace.segLens.length - 1){
+        const segT = segLen > 0 ? Math.min(1, dist / segLen) : 0;
+        const p0 = trace.points[i], p1 = trace.points[i + 1];
+        return { x: p0.x + (p1.x - p0.x) * segT, y: p0.y + (p1.y - p0.y) * segT };
+      }
+      dist -= segLen;
+    }
+    return trace.points[trace.points.length - 1];
+  }
+
+  function spawnSignal(){
+    return {
+      traceIndex: Math.floor(Math.random() * traces.length),
+      t: Math.random() * -0.4, // stagger start so they don't all pulse in sync
+      speed: 0.0025 + Math.random() * 0.004,
+      color: Math.random() < 0.72 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f')
+    };
   }
 
   function resize(){
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
+    traces = buildTraces();
+    const signalCount = Math.max(6, Math.round(traces.length * 0.7));
+    signals = Array.from({ length: signalCount }, spawnSignal);
   }
-  function makeLeds(){
-    const count = Math.min(30, Math.max(10, Math.floor((w * h) / 90000)));
-    leds = Array.from({ length: count }, spawnLed);
+
+  function drawBoard(){
+    if (!traces.length) return;
+    const traceColor = themeColor('--accent-dim', '#1c5e68');
+    ctx.strokeStyle = traceColor;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 1;
+    ctx.lineJoin = 'round';
+
+    traces.forEach(trace => {
+      ctx.beginPath();
+      trace.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.stroke();
+
+      // small solder-pad rings at every joint/junction
+      ctx.fillStyle = traceColor;
+      trace.points.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSignals(){
+    signals.forEach(sig => {
+      sig.t += sig.speed;
+      if (sig.t > 1.15){ Object.assign(sig, spawnSignal()); return; }
+      if (sig.t < 0) return; // still in its staggered delay
+
+      const trace = traces[sig.traceIndex];
+      const head = pointAtProgress(trace, sig.t);
+      const tail = pointAtProgress(trace, sig.t - 0.05);
+
+      const grad = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(1, sig.color);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(tail.x, tail.y);
+      ctx.lineTo(head.x, head.y);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = sig.color;
+      ctx.shadowBlur = 9;
+      ctx.shadowColor = sig.color;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
   }
 
   function tick(){
     ctx.clearRect(0, 0, w, h);
-    ctx.lineCap = 'round';
-
-    leds.forEach(led => {
-      if (led.axis === 'h') led.x += led.speed; else led.y += led.speed;
-
-      const dir = Math.sign(led.speed);
-      const x1 = led.x, y1 = led.y;
-      const x2 = led.axis === 'h' ? led.x - dir * led.length : led.x;
-      const y2 = led.axis === 'h' ? led.y : led.y - dir * led.length;
-
-      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-      grad.addColorStop(0, led.color);
-      grad.addColorStop(1, 'transparent');
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 1.6;
-      ctx.globalAlpha = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-
-      // bright head
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = led.color;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = led.color;
-      ctx.beginPath();
-      ctx.arc(x1, y1, 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      const offscreen = led.axis === 'h'
-        ? (led.speed > 0 ? led.x - led.length > w : led.x + led.length < 0)
-        : (led.speed > 0 ? led.y - led.length > h : led.y + led.length < 0);
-      if (offscreen) Object.assign(led, spawnLed());
-    });
-
-    ctx.globalAlpha = 1;
+    drawBoard();
+    drawSignals();
     requestAnimationFrame(tick);
   }
 
-  window.addEventListener('resize', () => { resize(); makeLeds(); });
-  resize(); makeLeds(); tick();
+  window.addEventListener('resize', resize);
+  resize();
+  tick();
 })();
 
 /* =========================================================
