@@ -379,13 +379,15 @@ const Sound = (() => {
     catch(err){}
   }
 
-  let tasksArr = load();
-  let nextId = tasksArr.reduce((max, t) => Math.max(max, t.id), 0) + 1;
+  window.tasksArr = load();
+  let nextId = window.tasksArr.reduce((max, t) => Math.max(max, t.id), 0) + 1;
   let draggedId = null;
 
-  // Add new task
+  window.saveTasks = save;
+
+  // Global helper: Create task
   window.addNewTask = function(text, priority = 'medium', due = null) {
-    tasksArr.push({
+    window.tasksArr.push({
       id: nextId++,
       text: text,
       status: 'todo',
@@ -395,20 +397,6 @@ const Sound = (() => {
     save();
     render();
     if (typeof Sound !== 'undefined') Sound.taskDone();
-  };
-
-  // Modify task by title match
-  window.updateExistingTask = function(titleSearch, newPriority = null, newDue = null) {
-    const task = tasksArr.find(t => t.text.toLowerCase().includes(titleSearch.toLowerCase()));
-    if (!task) return null;
-
-    if (newPriority) task.priority = newPriority;
-    if (newDue !== null) task.due = newDue;
-
-    save();
-    render();
-    if (typeof Sound !== 'undefined') Sound.taskDone();
-    return task;
   };
 
   function moveTask(task, newStatus){
@@ -440,7 +428,7 @@ const Sound = (() => {
   function render(){
     STATUSES.forEach(status => {
       if (!lists[status]) return;
-      const items = tasksArr.filter(t => t.status === status);
+      const items = window.tasksArr.filter(t => t.status === status);
       lists[status].innerHTML = '';
       if (emptyMsgs[status]) emptyMsgs[status].style.display = items.length ? 'none' : 'block';
       if (counts[status]) counts[status].textContent = items.length;
@@ -450,7 +438,7 @@ const Sound = (() => {
         const li = document.createElement('li');
         li.className = 'kanban-card';
         li.draggable = true;
-        li.title = "Double-click to edit task details";
+        li.title = "Double-click card to edit details";
 
         const metaBits = [`<span class="priority-badge ${task.priority}">${task.priority}</span>`];
         if (task.due){
@@ -471,9 +459,9 @@ const Sound = (() => {
         `;
         li.querySelector('.card-text').textContent = task.text;
 
-        // Interactive double-click to edit card properties
+        // Double-click edit prompt
         li.addEventListener('dblclick', (e) => {
-          if (e.target.tagName === 'BUTTON') return; // Ignore clicks on action buttons
+          if (e.target.tagName === 'BUTTON') return;
           
           const newTitle = prompt('Edit task title:', task.text);
           if (newTitle !== null && newTitle.trim() !== '') task.text = newTitle.trim();
@@ -483,7 +471,7 @@ const Sound = (() => {
             task.priority = newPrio.toLowerCase();
           }
 
-          const newDue = prompt('Edit due date (YYYY-MM-DD) or leave empty:', task.due || '');
+          const newDue = prompt('Edit due date (YYYY-MM-DD) or leave blank:', task.due || '');
           if (newDue !== null) task.due = newDue.trim() || null;
 
           save();
@@ -499,7 +487,7 @@ const Sound = (() => {
         fwdBtn.addEventListener('click', () => moveTaskByStep(task, 1));
 
         li.querySelector('.card-del').addEventListener('click', () => {
-          tasksArr = tasksArr.filter(t => t.id !== task.id);
+          window.tasksArr = window.tasksArr.filter(t => t.id !== task.id);
           save();
           render();
         });
@@ -519,10 +507,12 @@ const Sound = (() => {
       });
     });
 
-    const total = tasksArr.length;
-    const done = tasksArr.filter(t => t.status === 'done').length;
+    const total = window.tasksArr.length;
+    const done = window.tasksArr.filter(t => t.status === 'done').length;
     if (summary) summary.textContent = total ? `${total} total · ${done} completed` : '';
   }
+
+  window.renderTasks = render;
 
   columnEls.forEach(col => {
     col.addEventListener('dragover', e => {
@@ -534,7 +524,7 @@ const Sound = (() => {
       e.preventDefault();
       col.classList.remove('drag-over');
       const id = Number(e.dataTransfer.getData('text/plain')) || draggedId;
-      const task = tasksArr.find(t => t.id === id);
+      const task = window.tasksArr.find(t => t.id === id);
       if (task) moveTask(task, col.dataset.status);
     });
   });
@@ -819,7 +809,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
   }
 
-  /* ---- Voice Input (Web Speech API) ---- */
+  /* ---- Speech Recognition ---- */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognizing = false;
   let recognizer = null;
@@ -867,7 +857,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Male Voice Selection Engine ---- */
+  /* ---- Voice Synthesis ---- */
   let selectedVoice = null;
 
   function loadMaleVoice() {
@@ -893,7 +883,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     window.speechSynthesis.cancel();
 
     const utter = new SpeechSynthesisUtterance(text);
-    
     if (!selectedVoice) loadMaleVoice();
     if (selectedVoice) utter.voice = selectedVoice;
 
@@ -913,7 +902,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM + PARSER ENGINE
+   13. BROWSER VIRTUAL FILE SYSTEM + FLEXIBLE LOCAL PARSER
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -1056,56 +1045,72 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  /* Comprehensive Local Command Parser for Tasks, Edits, and Files */
+  /* Flexible Local Command Parser for Tasks, Edits, and Files */
   window.processLocalCommand = async function (userText) {
     const rawText = userText.trim();
     const cleanText = rawText.toLowerCase().replace(/[.!?]+$/, '');
 
-    // 1. Task Creation & Modification Parser
-    const isUpdate = /^(?:update task|edit task|change task|modify task)/i.test(rawText);
-    const isTask = isUpdate || /^(?:title:|task:|add task|create task)/i.test(rawText) || 
-                   cleanText.includes('priority:') || cleanText.includes('deadline:') || cleanText.includes('due:');
+    // 1. Flexible Task Intent Detection
+    const isEditKeywords = /\b(edit|update|change|set|modify|make)\b/i;
+    const isCreateKeywords = /\b(add|create|creat|new)\b/i;
+    const hasTaskKeywords = /\b(task|todo|item)\b/i;
+    const hasPrioOrDue = /\b(priority|prio|due|date|deadline)\b/i;
 
-    if (isTask) {
-      let taskTitle = rawText
-        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?(?:update task|edit task|change task|modify task|title:|task:|add task|create task)\s*/i, '')
-        .trim();
+    const isTaskIntent = hasTaskKeywords.test(cleanText) || isCreateKeywords.test(cleanText) || (isEditKeywords.test(cleanText) && hasPrioOrDue.test(cleanText));
 
+    if (isTaskIntent) {
+      let textToParse = rawText;
+
+      // Extract Priority (Supports: priority high, priority:high, prio high, high priority)
       let priority = null;
-      let due = null;
-
-      // Extract Priority
-      const prioMatch = taskTitle.match(/priority:\s*(low|medium|high)/i);
+      const prioMatch = textToParse.match(/(?:priority|prio|level)?\s*[:=\s]?\s*\b(low|medium|med|high)\b(?:\s*priority)?/i);
       if (prioMatch) {
         priority = prioMatch[1].toLowerCase();
-        taskTitle = taskTitle.replace(/priority:\s*(low|medium|high)/i, '');
+        if (priority === 'med') priority = 'medium';
+        textToParse = textToParse.replace(prioMatch[0], '');
       }
 
-      // Extract Deadline / Due Date
-      const dueMatch = taskTitle.match(/(?:deadline|due):\s*([0-9\-\/]+)/i);
+      // Extract Due Date (Supports: due date 09/09/2026, due:09-09-2026, deadline 09/09/2026, deu date)
+      let due = null;
+      const dueMatch = textToParse.match(/(?:due\s*date|deu\s*date|due|deadline|by)\s*[:=\s]?\s*([0-9]{1,4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,4})/i);
       if (dueMatch) {
         due = dueMatch[1].replace(/\//g, '-');
-        taskTitle = taskTitle.replace(/(?:deadline|due):\s*([0-9\-\/]+)/i, '');
+        textToParse = textToParse.replace(dueMatch[0], '');
       }
 
       // Clean leftover string labels
-      taskTitle = taskTitle.replace(/\b(priority|deadline|due):\s*/gi, '').trim();
+      let taskTitle = textToParse
+        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?/i, '')
+        .replace(/^(?:add|create|creat|new|edit|update|change|set|modify|make)\s+(?:a\s+)?(?:task|todo|item)?\s*/i, '')
+        .replace(/\b(to|for|as|date|priority|due)\b/gi, '')
+        .trim();
 
-      // Handle Modification Command
-      if (isUpdate) {
-        if (typeof window.updateExistingTask === 'function') {
-          const updated = window.updateExistingTask(taskTitle, priority, due);
-          if (updated) {
-            return `Task '${updated.text}' updated (Priority: ${updated.priority}${updated.due ? ', Due: ' + updated.due : ''}), sir.`;
-          }
+      const isUpdateAction = isEditKeywords.test(cleanText) && !isCreateKeywords.test(cleanText);
+
+      // --- EDIT TASK ---
+      if (isUpdateAction) {
+        let targetTask = null;
+        if (taskTitle) {
+          targetTask = window.tasksArr.find(t => t.text.toLowerCase().includes(taskTitle.toLowerCase()));
+        } else if (window.tasksArr.length > 0) {
+          targetTask = window.tasksArr[window.tasksArr.length - 1]; // Default to latest task
         }
-        return `Could not find a task matching '${taskTitle}' to update, sir.`;
+
+        if (targetTask) {
+          if (priority) targetTask.priority = priority;
+          if (due) targetTask.due = due;
+          window.saveTasks();
+          window.renderTasks();
+          if (typeof Sound !== 'undefined') Sound.taskDone();
+          return `Updated '${targetTask.text}' (Priority: ${targetTask.priority}${targetTask.due ? ', Due: ' + targetTask.due : ''}), sir.`;
+        }
+        return `Could not find a matching task to update, sir.`;
       }
 
-      // Handle Creation Command
+      // --- CREATE TASK ---
       if (taskTitle && typeof window.addNewTask === 'function') {
         window.addNewTask(taskTitle, priority || 'medium', due);
-        return `Task '${taskTitle}' added to your Kanban board (Priority: ${priority || 'medium'}${due ? ', Due: ' + due : ''}), sir.`;
+        return `Task '${taskTitle}' added to your board (Priority: ${priority || 'medium'}${due ? ', Due: ' + due : ''}), sir.`;
       }
     }
 
@@ -1120,7 +1125,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       return res;
     }
 
-    return null; // Delegate to Gemini API if no local match
+    return null; // Fallback to Gemini API
   };
 
   initDB();
