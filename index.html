@@ -53,40 +53,30 @@
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="workplace">WORKPLACE</button>
   </nav>
 
-  <!-- ===================== Dashboard panel ===================== -->
-  <section class="panel active" id="panel-dashboard" role="tabpanel">
-    <aside class="readout left">
-      <div class="title">Local Time</div>
-      <div class="row"><span>Clock</span><span id="clock-time">--:--:--</span></div>
-      <div class="row"><span>Date</span><span id="clock-date">----</span></div>
-      <div class="row"><span>Zone</span><span id="clock-zone">--</span></div>
-      <div class="waveform" aria-hidden="true">
-        <span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
-    </aside>
-    <!-- =========================================================
+  <!-- =========================================================
      PANEL: DASHBOARD
      ========================================================= -->
 <section class="panel active" id="panel-dashboard" role="tabpanel">
-  <aside class="readout left">
-    <div class="title">Local Time</div>
-    <div class="row"><span>Clock</span><span id="clock-time">--:--:--</span></div>
-    <div class="row"><span>Date</span><span id="clock-date">----</span></div>
-    <div class="row"><span>Zone</span><span id="clock-zone">--</span></div>
-    <div class="waveform" aria-hidden="true">
-      <span></span><span></span><span></span><span></span>
-      <span></span><span></span><span></span><span></span>
+  
+  <!-- ELECTRIC DIGITAL CLOCK -->
+  <div class="electric-clock-container">
+    <div class="clock-display">
+      <span id="electric-time">00:00:00</span>
+      <span id="electric-ampm" class="ampm-badge">AM</span>
     </div>
-  </aside>
+    <div class="clock-meta">
+      <span id="electric-date">SYS.DATE --/--/----</span>
+      <span id="electric-zone" class="zone-badge">UTC</span>
+    </div>
+  </div>
 
-  <!-- DASHBOARD WIDGETS GRID -->
-  <div class="dashboard-grid">
+  <!-- DRAGGABLE DASHBOARD WIDGETS -->
+  <div class="dashboard-widgets-area" id="dashboard-widgets-area">
     
     <!-- Focus / Pomodoro Timer -->
-    <div class="hud-widget pomodoro-widget">
-      <div class="widget-header">
-        <span class="widget-title">FOCUS TIMER</span>
+    <div class="hud-widget pomodoro-widget" id="widget-pomo" draggable="true">
+      <div class="widget-header drag-handle">
+        <span class="widget-title">⋮⋮ FOCUS TIMER</span>
         <span id="pomo-mode" class="pomo-mode-badge">FOCUS</span>
       </div>
       <div class="pomo-display">
@@ -99,18 +89,18 @@
     </div>
 
     <!-- Persistent Daily Notepad -->
-    <div class="hud-widget notepad-widget">
-      <div class="widget-header">
-        <span class="widget-title">SCRATCHPAD</span>
+    <div class="hud-widget notepad-widget" id="widget-notepad" draggable="true">
+      <div class="widget-header drag-handle">
+        <span class="widget-title">⋮⋮ SCRATCHPAD</span>
         <span id="notepad-status" class="notepad-status">SAVED</span>
       </div>
       <textarea id="daily-notepad" spellcheck="false" placeholder="Quick notes, code snippets, or ideas..."></textarea>
     </div>
 
     <!-- System Audio Visualizer / Ambient Synth -->
-    <div class="hud-widget audio-widget">
-      <div class="widget-header">
-        <span class="widget-title">AMBIENT GENERATOR</span>
+    <div class="hud-widget audio-widget" id="widget-audio" draggable="true">
+      <div class="widget-header drag-handle">
+        <span class="widget-title">⋮⋮ AMBIENT GENERATOR</span>
         <span id="audio-status" class="pomo-mode-badge">OFF</span>
       </div>
       <div class="audio-controls">
@@ -132,51 +122,8 @@
       <div class="orbit orbit-b"><span class="orbit-point"></span></div>
     </div>
   </div>
+
 </section>
-
-    <!-- Persistent Daily Notepad -->
-    <div class="hud-widget notepad-widget">
-      <div class="widget-header">
-        <span class="widget-title">SCRATCHPAD</span>
-        <span id="notepad-status" class="notepad-status">SAVED</span>
-      </div>
-      <textarea id="daily-notepad" placeholder="Quick notes, code snippets, or ideas..."></textarea>
-    </div>
-
-  </div>
-</div>
-
-    <div class="hud-core" id="hud-core">
-      <div class="hud-sphere" aria-hidden="true">
-        <div class="orbit orbit-a"><span class="orbit-point"></span></div>
-        <div class="orbit orbit-b"><span class="orbit-point"></span></div>
-        <div class="orbit orbit-c"><span class="orbit-point"></span></div>
-      </div>
-      <svg viewBox="0 0 200 200">
-        <circle class="ring ring-outer" cx="100" cy="100" r="94"/>
-        <g class="ring-tick">
-          <line x1="100" y1="4" x2="100" y2="14"/>
-          <line x1="100" y1="186" x2="100" y2="196"/>
-          <line x1="4" y1="100" x2="14" y2="100"/>
-          <line x1="186" y1="100" x2="196" y2="100"/>
-        </g>
-        <circle class="ring ring-sweep" cx="100" cy="100" r="94" stroke-dasharray="42 550"/>
-        <circle class="ring ring-sweep-slow" cx="100" cy="100" r="80"/>
-      </svg>
-      <div id="core-blob" aria-hidden="true"></div>
-      <div class="core-center">
-        <div class="label">STATUS</div>
-        <div class="value" id="hud-status">READY</div>
-      </div>
-    </div>
-
-    <aside class="readout right">
-      <div class="title">Weather</div>
-      <div class="row"><span>Location</span><span id="weather-loc">Locating…</span></div>
-      <div class="row"><span>Temp</span><span id="weather-temp">--°</span></div>
-      <div class="row"><span>Condition</span><span id="weather-cond">--</span></div>
-    </aside>
-  </section>
 
   <!-- ===================== Comms panel ===================== -->
   <section class="panel" id="panel-comms" role="tabpanel">
