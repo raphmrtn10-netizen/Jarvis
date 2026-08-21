@@ -68,7 +68,19 @@
     <!-- =========================================================
      PANEL: DASHBOARD
      ========================================================= -->
-<div id="panel-dashboard" class="hud-panel active">
+<section class="panel active" id="panel-dashboard" role="tabpanel">
+  <aside class="readout left">
+    <div class="title">Local Time</div>
+    <div class="row"><span>Clock</span><span id="clock-time">--:--:--</span></div>
+    <div class="row"><span>Date</span><span id="clock-date">----</span></div>
+    <div class="row"><span>Zone</span><span id="clock-zone">--</span></div>
+    <div class="waveform" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </aside>
+
+  <!-- DASHBOARD WIDGETS GRID -->
   <div class="dashboard-grid">
     
     <!-- Focus / Pomodoro Timer -->
@@ -85,6 +97,42 @@
         <button id="pomo-reset-btn" class="hud-btn secondary">RESET</button>
       </div>
     </div>
+
+    <!-- Persistent Daily Notepad -->
+    <div class="hud-widget notepad-widget">
+      <div class="widget-header">
+        <span class="widget-title">SCRATCHPAD</span>
+        <span id="notepad-status" class="notepad-status">SAVED</span>
+      </div>
+      <textarea id="daily-notepad" spellcheck="false" placeholder="Quick notes, code snippets, or ideas..."></textarea>
+    </div>
+
+    <!-- System Audio Visualizer / Ambient Synth -->
+    <div class="hud-widget audio-widget">
+      <div class="widget-header">
+        <span class="widget-title">AMBIENT GENERATOR</span>
+        <span id="audio-status" class="pomo-mode-badge">OFF</span>
+      </div>
+      <div class="audio-controls">
+        <select id="ambient-type" class="hud-select">
+          <option value="pink">Pink Noise (Focus)</option>
+          <option value="brown">Deep Drone (Calm)</option>
+          <option value="rain">Cabin Rain</option>
+        </select>
+        <button id="ambient-toggle-btn" class="hud-btn primary">PLAY</button>
+      </div>
+      <canvas id="audio-visualizer" width="260" height="35"></canvas>
+    </div>
+
+  </div>
+
+  <div class="hud-core" id="hud-core">
+    <div class="hud-sphere" aria-hidden="true">
+      <div class="orbit orbit-a"><span class="orbit-point"></span></div>
+      <div class="orbit orbit-b"><span class="orbit-point"></span></div>
+    </div>
+  </div>
+</section>
 
     <!-- Persistent Daily Notepad -->
     <div class="hud-widget notepad-widget">
