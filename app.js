@@ -64,6 +64,7 @@ const Sound = (() => {
   ];
 
   function finishBoot(){
+    if (!overlay || !shell) return;
     overlay.classList.add('hidden');
     shell.classList.add('revealed');
     Sound.bootComplete();
@@ -77,16 +78,18 @@ const Sound = (() => {
 
   lines.forEach((text, i) => {
     setTimeout(() => {
-      const div = document.createElement('div');
-      div.textContent = `> ${text}`;
-      log.appendChild(div);
+      if (log) {
+        const div = document.createElement('div');
+        div.textContent = `> ${text}`;
+        log.appendChild(div);
+      }
     }, i * 420);
   });
 
-  requestAnimationFrame(() => { barFill.style.width = '100%'; });
+  if (barFill) requestAnimationFrame(() => { barFill.style.width = '100%'; });
 
   const bootTimer = setTimeout(finishBoot, 2300);
-  skipBtn.addEventListener('click', () => { clearTimeout(bootTimer); finishBoot(); });
+  if (skipBtn) skipBtn.addEventListener('click', () => { clearTimeout(bootTimer); finishBoot(); });
 })();
 
 /* =========================================================
@@ -324,7 +327,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   7. TASKS PANEL
+   7. TASKS PANEL (With Direct Double-Click Editing)
    ========================================================= */
 (function tasks(){
   const form = document.getElementById('task-form');
@@ -380,7 +383,7 @@ const Sound = (() => {
   let nextId = tasksArr.reduce((max, t) => Math.max(max, t.id), 0) + 1;
   let draggedId = null;
 
-  // Global Add Task function accessible by Comms parser
+  // Add new task
   window.addNewTask = function(text, priority = 'medium', due = null) {
     tasksArr.push({
       id: nextId++,
@@ -392,6 +395,20 @@ const Sound = (() => {
     save();
     render();
     if (typeof Sound !== 'undefined') Sound.taskDone();
+  };
+
+  // Modify task by title match
+  window.updateExistingTask = function(titleSearch, newPriority = null, newDue = null) {
+    const task = tasksArr.find(t => t.text.toLowerCase().includes(titleSearch.toLowerCase()));
+    if (!task) return null;
+
+    if (newPriority) task.priority = newPriority;
+    if (newDue !== null) task.due = newDue;
+
+    save();
+    render();
+    if (typeof Sound !== 'undefined') Sound.taskDone();
+    return task;
   };
 
   function moveTask(task, newStatus){
@@ -433,6 +450,7 @@ const Sound = (() => {
         const li = document.createElement('li');
         li.className = 'kanban-card';
         li.draggable = true;
+        li.title = "Double-click to edit task details";
 
         const metaBits = [`<span class="priority-badge ${task.priority}">${task.priority}</span>`];
         if (task.due){
@@ -452,6 +470,26 @@ const Sound = (() => {
           </div>
         `;
         li.querySelector('.card-text').textContent = task.text;
+
+        // Interactive double-click to edit card properties
+        li.addEventListener('dblclick', (e) => {
+          if (e.target.tagName === 'BUTTON') return; // Ignore clicks on action buttons
+          
+          const newTitle = prompt('Edit task title:', task.text);
+          if (newTitle !== null && newTitle.trim() !== '') task.text = newTitle.trim();
+
+          const newPrio = prompt('Edit priority (low, medium, high):', task.priority);
+          if (newPrio && ['low', 'medium', 'high'].includes(newPrio.toLowerCase())) {
+            task.priority = newPrio.toLowerCase();
+          }
+
+          const newDue = prompt('Edit due date (YYYY-MM-DD) or leave empty:', task.due || '');
+          if (newDue !== null) task.due = newDue.trim() || null;
+
+          save();
+          render();
+          Sound.click();
+        });
 
         const backBtn = li.querySelector('.move-back');
         const fwdBtn = li.querySelector('.move-fwd');
@@ -768,7 +806,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       Sound.send();
       input.value = '';
 
-      // Check local command parser first
       if (typeof window.processLocalCommand === 'function') {
         const localResult = await window.processLocalCommand(text);
         if (localResult) {
@@ -838,13 +875,10 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return;
 
-    // Search by known masculine voice names across OS platforms (Windows, macOS, Android, Chrome/Edge)
     selectedVoice = voices.find(v => v.lang.startsWith('en') && (
       /\b(male|david|daniel|george|alex|james|mark|guy|richard|stefan|google us english)\b/i.test(v.name)
     )) 
-    // Fallback: Pick any non-female voice
     || voices.find(v => v.lang.startsWith('en') && !/\b(female|zira|hazel|susan|victoria|catherine|samantha|karen)\b/i.test(v.name)) 
-    // Final fallback: First available English voice
     || voices.find(v => v.lang.startsWith('en')) 
     || voices[0];
   }
@@ -864,7 +898,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     if (selectedVoice) utter.voice = selectedVoice;
 
     utter.rate = 1.0;
-    utter.pitch = 0.8; // Deepen voice pitch
+    utter.pitch = 0.8;
     
     utter.onstart = () => setHudState('speaking');
     utter.onend = () => {
@@ -879,7 +913,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM + LOCAL COMMAND PARSER
+   13. BROWSER VIRTUAL FILE SYSTEM + PARSER ENGINE
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -1022,23 +1056,22 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  /* Robust Command Parser for Tasks, Priorities, and Files */
+  /* Comprehensive Local Command Parser for Tasks, Edits, and Files */
   window.processLocalCommand = async function (userText) {
     const rawText = userText.trim();
     const cleanText = rawText.toLowerCase().replace(/[.!?]+$/, '');
 
-    // 1. Task Creation Parsing
-    const isTask = /^(?:title:|task:|add task|create task)/i.test(rawText) || 
-                   cleanText.includes('task') || 
-                   cleanText.includes('priority:') || 
-                   cleanText.includes('deadline:');
+    // 1. Task Creation & Modification Parser
+    const isUpdate = /^(?:update task|edit task|change task|modify task)/i.test(rawText);
+    const isTask = isUpdate || /^(?:title:|task:|add task|create task)/i.test(rawText) || 
+                   cleanText.includes('priority:') || cleanText.includes('deadline:') || cleanText.includes('due:');
 
     if (isTask) {
       let taskTitle = rawText
-        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?(?:title:|task:|add task|create task)\s*/i, '')
+        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?(?:update task|edit task|change task|modify task|title:|task:|add task|create task)\s*/i, '')
         .trim();
 
-      let priority = 'medium';
+      let priority = null;
       let due = null;
 
       // Extract Priority
@@ -1055,16 +1088,28 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
         taskTitle = taskTitle.replace(/(?:deadline|due):\s*([0-9\-\/]+)/i, '');
       }
 
-      // Final cleanup of residual label strings
+      // Clean leftover string labels
       taskTitle = taskTitle.replace(/\b(priority|deadline|due):\s*/gi, '').trim();
 
+      // Handle Modification Command
+      if (isUpdate) {
+        if (typeof window.updateExistingTask === 'function') {
+          const updated = window.updateExistingTask(taskTitle, priority, due);
+          if (updated) {
+            return `Task '${updated.text}' updated (Priority: ${updated.priority}${updated.due ? ', Due: ' + updated.due : ''}), sir.`;
+          }
+        }
+        return `Could not find a task matching '${taskTitle}' to update, sir.`;
+      }
+
+      // Handle Creation Command
       if (taskTitle && typeof window.addNewTask === 'function') {
-        window.addNewTask(taskTitle, priority, due);
-        return `Task '${taskTitle}' added to your Kanban board (Priority: ${priority}${due ? ', Due: ' + due : ''}), sir.`;
+        window.addNewTask(taskTitle, priority || 'medium', due);
+        return `Task '${taskTitle}' added to your Kanban board (Priority: ${priority || 'medium'}${due ? ', Due: ' + due : ''}), sir.`;
       }
     }
 
-    // 2. Folder & Project Parsing
+    // 2. Folder & Project Creation Parser
     const fileMatch = cleanText.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
     if (fileMatch) {
       const type = fileMatch[1];
@@ -1075,7 +1120,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       return res;
     }
 
-    return null; // Passes through to Gemini API if not matched locally
+    return null; // Delegate to Gemini API if no local match
   };
 
   initDB();
