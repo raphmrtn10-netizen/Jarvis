@@ -11,11 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       const targetTab = btn.getAttribute('data-tab');
 
-      // Maj boutons
-      tabButtons.forEach(b => b.classList.remove('active'));
+      tabButtons.forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
       btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
 
-      // Maj panneaux
       panels.forEach(panel => {
         if (panel.id === `panel-${targetTab}`) {
           panel.classList.add('active');
@@ -68,35 +70,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('dashboard-widgets-area');
   if (!container) return;
 
-  const widgets = Array.from(container.querySelectorAll('.hud-widget'));
   let draggedItem = null;
 
-  widgets.forEach(widget => {
-    widget.addEventListener('dragstart', (e) => {
+  container.addEventListener('dragstart', (e) => {
+    const widget = e.target.closest('.hud-widget');
+    if (widget) {
       draggedItem = widget;
       setTimeout(() => widget.classList.add('is-dragging'), 0);
       e.dataTransfer.effectAllowed = 'move';
-    });
+    }
+  });
 
-    widget.addEventListener('dragend', () => {
+  container.addEventListener('dragend', (e) => {
+    const widget = e.target.closest('.hud-widget');
+    if (widget) {
       widget.classList.remove('is-dragging');
-      widgets.forEach(w => w.classList.remove('drag-over'));
+      container.querySelectorAll('.hud-widget').forEach(w => w.classList.remove('drag-over'));
       draggedItem = null;
-    });
+    }
+  });
 
-    widget.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      if (widget !== draggedItem) {
-        widget.classList.add('drag-over');
-      }
-    });
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const widget = e.target.closest('.hud-widget');
+    if (widget && widget !== draggedItem) {
+      widget.classList.add('drag-over');
+    }
+  });
 
-    widget.addEventListener('dragleave', () => {
+  container.addEventListener('dragleave', (e) => {
+    const widget = e.target.closest('.hud-widget');
+    if (widget) {
       widget.classList.remove('drag-over');
-    });
+    }
+  });
 
-    widget.addEventListener('drop', (e) => {
-      e.preventDefault();
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const widget = e.target.closest('.hud-widget');
+    if (widget) {
       widget.classList.remove('drag-over');
       if (draggedItem && draggedItem !== widget) {
         const allWidgets = Array.from(container.querySelectorAll('.hud-widget'));
@@ -109,6 +121,24 @@ document.addEventListener('DOMContentLoaded', () => {
           container.insertBefore(draggedItem, widget);
         }
       }
-    });
+    }
+  });
+})();
+
+// 4. Scratchpad Storage
+(function initNotepad() {
+  const notepad = document.getElementById('daily-notepad');
+  const status = document.getElementById('notepad-status');
+
+  if (!notepad) return;
+
+  notepad.value = localStorage.getItem('jarvis_notepad_content') || '';
+
+  notepad.addEventListener('input', () => {
+    localStorage.setItem('jarvis_notepad_content', notepad.value);
+    if (status) {
+      status.textContent = 'SAVING...';
+      setTimeout(() => { status.textContent = 'SAVED'; }, 500);
+    }
   });
 })();
