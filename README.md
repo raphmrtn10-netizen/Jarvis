@@ -1,2 +1,2 @@
-# Jarvis-hud
-Website
+# Jarvis
+Personal ai assistant
