@@ -1155,9 +1155,9 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   initDB();
 })();
 /* =========================================================
-   POMODORO & SCRATCHPAD DASHBOARD INITIALIZATION
+   DASHBOARD WIDGETS ENGINE (Timer, Notepad & Ambient Audio)
    ========================================================= */
-(function initDashboardWidgets() {
+(function initDashboardEngine() {
   // 1. Pomodoro Logic
   const timeDisplay = document.getElementById('pomo-time');
   const modeBadge = document.getElementById('pomo-mode');
@@ -1233,7 +1233,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     updateDisplay();
   }
 
-  // 2. Daily Scratchpad Logic
+  // 2. Scratchpad Logic
   const textarea = document.getElementById('daily-notepad');
   const statusEl = document.getElementById('notepad-status');
   const NOTEPAD_STORAGE_KEY = 'jarvis-daily-notepad';
@@ -1257,5 +1257,90 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
         }
       }, 600);
     });
+  }
+
+  // 3. Ambient Audio Generator & Visualizer
+  const audioBtn = document.getElementById('ambient-toggle-btn');
+  const audioSelect = document.getElementById('ambient-type');
+  const audioStatus = document.getElementById('audio-status');
+  const canvas = document.getElementById('audio-visualizer');
+
+  if (audioBtn && canvas) {
+    let audioCtx = null;
+    let noiseNode = null;
+    let isPlaying = false;
+    let animId = null;
+    const ctx = canvas.getContext('2d');
+
+    function createNoiseBuffer(type) {
+      const bufferSize = audioCtx.sampleRate * 2;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = buffer.getChannelData(0);
+
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        if (type === 'pink') {
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.04;
+          b6 = white * 0.115926;
+        } else if (type === 'brown') {
+          b0 = (b0 + (0.02 * white)) / 1.02;
+          output[i] = b0 * 0.15;
+        } else { // rain
+          output[i] = (white * 0.05) * (Math.random() > 0.98 ? 1.5 : 0.8);
+        }
+      }
+      return buffer;
+    }
+
+    function drawVisualizer() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const bars = 20;
+      const barWidth = canvas.width / bars;
+
+      for (let i = 0; i < bars; i++) {
+        const height = isPlaying ? Math.random() * (canvas.height - 5) + 5 : 2;
+        ctx.fillStyle = isPlaying ? '#4fd8e6' : '#1c5e68';
+        ctx.fillRect(i * barWidth, canvas.height - height, barWidth - 2, height);
+      }
+
+      if (isPlaying) animId = requestAnimationFrame(drawVisualizer);
+    }
+
+    audioBtn.addEventListener('click', () => {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      if (isPlaying) {
+        if (noiseNode) noiseNode.stop();
+        isPlaying = false;
+        audioBtn.textContent = 'PLAY';
+        audioBtn.className = 'hud-btn primary';
+        if (audioStatus) audioStatus.textContent = 'OFF';
+        cancelAnimationFrame(animId);
+        drawVisualizer();
+      } else {
+        const buffer = createNoiseBuffer(audioSelect.value);
+        noiseNode = audioCtx.createBufferSource();
+        noiseNode.buffer = buffer;
+        noiseNode.loop = true;
+        noiseNode.connect(audioCtx.destination);
+        noiseNode.start();
+
+        isPlaying = true;
+        audioBtn.textContent = 'STOP';
+        audioBtn.className = 'hud-btn secondary';
+        if (audioStatus) audioStatus.textContent = 'ACTIVE';
+        drawVisualizer();
+      }
+    });
+
+    drawVisualizer();
   }
 })();
