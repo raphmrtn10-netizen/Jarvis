@@ -1154,3 +1154,108 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
   initDB();
 })();
+/* =========================================================
+   POMODORO & SCRATCHPAD DASHBOARD INITIALIZATION
+   ========================================================= */
+(function initDashboardWidgets() {
+  // 1. Pomodoro Logic
+  const timeDisplay = document.getElementById('pomo-time');
+  const modeBadge = document.getElementById('pomo-mode');
+  const toggleBtn = document.getElementById('pomo-toggle-btn');
+  const resetBtn = document.getElementById('pomo-reset-btn');
+
+  if (timeDisplay && toggleBtn && resetBtn) {
+    const FOCUS_TIME = 25 * 60;
+    const BREAK_TIME = 5 * 60;
+    let timeLeft = FOCUS_TIME;
+    let timerId = null;
+    let isBreak = false;
+
+    const updateDisplay = () => {
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      timeDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    };
+
+    toggleBtn.addEventListener('click', () => {
+      if (typeof Sound !== 'undefined') Sound.click();
+
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+        toggleBtn.textContent = 'START';
+        toggleBtn.className = 'hud-btn primary';
+      } else {
+        toggleBtn.textContent = 'PAUSE';
+        toggleBtn.className = 'hud-btn secondary';
+
+        timerId = setInterval(() => {
+          timeLeft--;
+          if (timeLeft < 0) {
+            clearInterval(timerId);
+            timerId = null;
+
+            if (typeof Sound !== 'undefined') Sound.taskDone();
+
+            isBreak = !isBreak;
+            timeLeft = isBreak ? BREAK_TIME : FOCUS_TIME;
+
+            if (modeBadge) {
+              modeBadge.textContent = isBreak ? 'REST' : 'FOCUS';
+              modeBadge.style.background = isBreak ? 'var(--warn, #e6a04f)' : 'var(--accent-dim, #1c5e68)';
+            }
+
+            toggleBtn.textContent = 'START';
+            toggleBtn.className = 'hud-btn primary';
+          }
+          updateDisplay();
+        }, 1000);
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (typeof Sound !== 'undefined') Sound.click();
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      isBreak = false;
+      timeLeft = FOCUS_TIME;
+      if (modeBadge) {
+        modeBadge.textContent = 'FOCUS';
+        modeBadge.style.background = 'var(--accent-dim, #1c5e68)';
+      }
+      toggleBtn.textContent = 'START';
+      toggleBtn.className = 'hud-btn primary';
+      updateDisplay();
+    });
+
+    updateDisplay();
+  }
+
+  // 2. Daily Scratchpad Logic
+  const textarea = document.getElementById('daily-notepad');
+  const statusEl = document.getElementById('notepad-status');
+  const NOTEPAD_STORAGE_KEY = 'jarvis-daily-notepad';
+
+  if (textarea) {
+    textarea.value = localStorage.getItem(NOTEPAD_STORAGE_KEY) || '';
+    let saveDebounceTimer = null;
+
+    textarea.addEventListener('input', () => {
+      if (statusEl) {
+        statusEl.textContent = 'SAVING...';
+        statusEl.classList.add('unsaved');
+      }
+
+      clearTimeout(saveDebounceTimer);
+      saveDebounceTimer = setTimeout(() => {
+        localStorage.setItem(NOTEPAD_STORAGE_KEY, textarea.value);
+        if (statusEl) {
+          statusEl.textContent = 'SAVED';
+          statusEl.classList.remove('unsaved');
+        }
+      }, 600);
+    });
+  }
+})();
