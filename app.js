@@ -327,7 +327,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   7. TASKS PANEL (With Direct Double-Click Editing)
+   7. TASKS PANEL (With Robust Date Parser & Card Editing)
    ========================================================= */
 (function tasks(){
   const form = document.getElementById('task-form');
@@ -385,7 +385,6 @@ const Sound = (() => {
 
   window.saveTasks = save;
 
-  // Global helper: Create task
   window.addNewTask = function(text, priority = 'medium', due = null) {
     window.tasksArr.push({
       id: nextId++,
@@ -414,15 +413,34 @@ const Sound = (() => {
     moveTask(task, STATUSES[newIdx]);
   }
 
-  function formatDue(dateStr){
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  // Safe Multi-Format Date Parser & Formatter
+  function formatDue(dateStr) {
+    if (!dateStr) return '';
+    const clean = dateStr.toString().trim().replace(/\//g, '-');
+    const parts = clean.split('-');
+
+    let year, month, day;
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        [year, month, day] = parts;
+      } else {
+        [month, day, year] = parts;
+      }
+      const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+
+    const parsed = new Date(dateStr);
+    return isNaN(parsed.getTime()) ? dateStr : parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function isOverdue(dateStr){
     const today = new Date();
     today.setHours(0,0,0,0);
-    return new Date(dateStr + 'T00:00:00') < today;
+    const parsed = new Date(dateStr);
+    return !isNaN(parsed.getTime()) && parsed < today;
   }
 
   function render(){
@@ -440,10 +458,11 @@ const Sound = (() => {
         li.draggable = true;
         li.title = "Double-click card to edit details";
 
+        const formattedDate = formatDue(task.due);
         const metaBits = [`<span class="priority-badge ${task.priority}">${task.priority}</span>`];
-        if (task.due){
+        if (task.due && formattedDate){
           const overdue = status !== 'done' && isOverdue(task.due);
-          metaBits.push(`<span class="due-date${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}Due ${formatDue(task.due)}</span>`);
+          metaBits.push(`<span class="due-date${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}Due ${formattedDate}</span>`);
         }
 
         li.innerHTML = `
@@ -459,7 +478,6 @@ const Sound = (() => {
         `;
         li.querySelector('.card-text').textContent = task.text;
 
-        // Double-click edit prompt
         li.addEventListener('dblclick', (e) => {
           if (e.target.tagName === 'BUTTON') return;
           
@@ -471,7 +489,7 @@ const Sound = (() => {
             task.priority = newPrio.toLowerCase();
           }
 
-          const newDue = prompt('Edit due date (YYYY-MM-DD) or leave blank:', task.due || '');
+          const newDue = prompt('Edit due date (YYYY-MM-DD or MM/DD/YYYY):', task.due || '');
           if (newDue !== null) task.due = newDue.trim() || null;
 
           save();
@@ -705,7 +723,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   12. COMMS PANEL — Chat + Speech Recognition + Speech Synthesis
+   12. COMMS PANEL — Chat + Voice Engine Filter + Speech API
    ========================================================= */
 (function comms(){
   const chatLog = document.getElementById('chat-log');
@@ -857,7 +875,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Voice Synthesis ---- */
+  /* ---- Voice Synthesis (Masculine Voice Engine Filter) ---- */
   let selectedVoice = null;
 
   function loadMaleVoice() {
@@ -865,11 +883,11 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return;
 
-    selectedVoice = voices.find(v => v.lang.startsWith('en') && (
-      /\b(male|david|daniel|george|alex|james|mark|guy|richard|stefan|google us english)\b/i.test(v.name)
-    )) 
+    selectedVoice = voices.find(v => 
+      v.lang.startsWith('en') && 
+      /\b(david|daniel|george|alex|james|mark|guy|richard|stefan|google uk english male|google us english male|male|natural)\b/i.test(v.name)
+    ) 
     || voices.find(v => v.lang.startsWith('en') && !/\b(female|zira|hazel|susan|victoria|catherine|samantha|karen)\b/i.test(v.name)) 
-    || voices.find(v => v.lang.startsWith('en')) 
     || voices[0];
   }
 
@@ -902,7 +920,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM + FLEXIBLE LOCAL PARSER
+   13. BROWSER VIRTUAL FS + NATURAL PARSER (WITH FILLER STRIPPING)
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -1045,23 +1063,28 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  /* Flexible Local Command Parser for Tasks, Edits, and Files */
+  /* Flexible Local Command Parser with Filler Word Removal */
   window.processLocalCommand = async function (userText) {
-    const rawText = userText.trim();
-    const cleanText = rawText.toLowerCase().replace(/[.!?]+$/, '');
+    let cleanText = userText.trim().toLowerCase();
+
+    // Strip filler words and speech headers
+    cleanText = cleanText
+      .replace(/\b(uh|um|like|ah|so|hey|jarvis|please|can you|could you|i want to|i need to|would you|kindly)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     // 1. Flexible Task Intent Detection
-    const isEditKeywords = /\b(edit|update|change|set|modify|make)\b/i;
-    const isCreateKeywords = /\b(add|create|creat|new)\b/i;
+    const isEditKeywords = /\b(edit|update|change|set|modify|make|put)\b/i;
+    const isCreateKeywords = /\b(add|create|creat|new|make|put)\b/i;
     const hasTaskKeywords = /\b(task|todo|item)\b/i;
     const hasPrioOrDue = /\b(priority|prio|due|date|deadline)\b/i;
 
     const isTaskIntent = hasTaskKeywords.test(cleanText) || isCreateKeywords.test(cleanText) || (isEditKeywords.test(cleanText) && hasPrioOrDue.test(cleanText));
 
     if (isTaskIntent) {
-      let textToParse = rawText;
+      let textToParse = cleanText;
 
-      // Extract Priority (Supports: priority high, priority:high, prio high, high priority)
+      // Extract Priority
       let priority = null;
       const prioMatch = textToParse.match(/(?:priority|prio|level)?\s*[:=\s]?\s*\b(low|medium|med|high)\b(?:\s*priority)?/i);
       if (prioMatch) {
@@ -1070,19 +1093,19 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
         textToParse = textToParse.replace(prioMatch[0], '');
       }
 
-      // Extract Due Date (Supports: due date 09/09/2026, due:09-09-2026, deadline 09/09/2026, deu date)
+      // Extract Due Date (Supports 09/09/2026, 2026-09-09, or Sept 1 2026)
       let due = null;
-      const dueMatch = textToParse.match(/(?:due\s*date|deu\s*date|due|deadline|by)\s*[:=\s]?\s*([0-9]{1,4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,4})/i);
-      if (dueMatch) {
-        due = dueMatch[1].replace(/\//g, '-');
+      const dueMatch = textToParse.match(/(?:due\s*date|deu\s*date|due|deadline|by)?\s*[:=\s]?\s*([0-9]{1,4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,4}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(?:\s+\d{4})?|\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*(?:\s+\d{4})?)/i);
+
+      if (dueMatch && dueMatch[1]) {
+        due = dueMatch[1].trim();
         textToParse = textToParse.replace(dueMatch[0], '');
       }
 
-      // Clean leftover string labels
+      // Clean leftover system words to build the task title
       let taskTitle = textToParse
-        .replace(/^(?:hey\s+jarvis\s+)?(?:please\s+)?/i, '')
-        .replace(/^(?:add|create|creat|new|edit|update|change|set|modify|make)\s+(?:a\s+)?(?:task|todo|item)?\s*/i, '')
-        .replace(/\b(to|for|as|date|priority|due)\b/gi, '')
+        .replace(/\b(add|create|creat|new|edit|update|change|set|modify|make|a|the|task|todo|item|priority|prio|due|date|deadline|to|for|as|on|by)\b/gi, '')
+        .replace(/\s+/g, ' ')
         .trim();
 
       const isUpdateAction = isEditKeywords.test(cleanText) && !isCreateKeywords.test(cleanText);
@@ -1091,9 +1114,10 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       if (isUpdateAction) {
         let targetTask = null;
         if (taskTitle) {
-          targetTask = window.tasksArr.find(t => t.text.toLowerCase().includes(taskTitle.toLowerCase()));
-        } else if (window.tasksArr.length > 0) {
-          targetTask = window.tasksArr[window.tasksArr.length - 1]; // Default to latest task
+          targetTask = window.tasksArr.find(t => t.text.toLowerCase().includes(taskTitle));
+        }
+        if (!targetTask && window.tasksArr.length > 0) {
+          targetTask = window.tasksArr[window.tasksArr.length - 1]; // Fallback to last created task
         }
 
         if (targetTask) {
