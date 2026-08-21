@@ -323,7 +323,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   7. TASKS PANEL (Exposed globally for Comms direct creation)
+   7. TASKS PANEL
    ========================================================= */
 (function tasks(){
   const form = document.getElementById('task-form');
@@ -810,13 +810,30 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     micBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Voice output (Speech Synthesis) ---- */
+  /* ---- Male Voice Selection Logic ---- */
+  function getMaleVoice() {
+    const voices = window.speechSynthesis.getVoices();
+    return voices.find(v => v.lang.startsWith('en') && (
+      v.name.includes('Male') || 
+      v.name.includes('David') || 
+      v.name.includes('George') || 
+      v.name.includes('Alex') || 
+      v.name.includes('Daniel')
+    )) || voices.find(v => v.lang.startsWith('en')) || null;
+  }
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => { getMaleVoice(); };
+  }
+
   function speak(text){
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.02;
-    utter.pitch = 0.9;
+    const maleVoice = getMaleVoice();
+    if (maleVoice) utter.voice = maleVoice;
+    utter.rate = 1.0;
+    utter.pitch = 0.85; // Lower pitch to enforce masculine tone
     utter.onstart = () => setHudState('speaking');
     utter.onend = () => {
       setHudState(null);
@@ -870,17 +887,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
   }
 
-  function getItem(path) {
-    return new Promise((resolve, reject) => {
-      if (!db) return resolve(null);
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(path);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = (e) => reject(e.target.error);
-    });
-  }
-
   function getAllItems() {
     return new Promise((resolve, reject) => {
       if (!db) return resolve([]);
@@ -892,7 +898,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
   }
 
-  /* File Editor Modal Logic */
   function openEditorModal(item) {
     let modal = document.getElementById('file-editor-modal');
     if (!modal) {
@@ -984,21 +989,41 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  /* Universal Local Command Parser (Handles Files + Tasks via Comms) */
+  /* Extended Command Parser for Tasks, Priorities, and Files */
   window.processLocalCommand = async function (userText) {
-    const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
+    const text = userText.trim();
 
-    // 1. Task Creation Matching
-    const taskMatch = text.match(/(?:create|add|make)\s+(?:a\s+)?task\s+(?:to\s+)?(.+)/i);
-    if (taskMatch) {
-      const taskName = taskMatch[1].trim();
-      if (window.addNewTask) {
-        window.addNewTask(taskName);
-        return `Task '${taskName}' has been added to your board, sir.`;
+    // Catch 'title:', 'task:', 'add task', or 'create task'
+    const isTaskCmd = /^(?:title:|task:|add task|create task)/i.test(text);
+
+    if (isTaskCmd) {
+      let taskTitle = text.replace(/^(?:title:|task:|add task|create task)\s*/i, '');
+
+      // Parse optional Priority: and Deadline: parameters
+      let priority = 'medium';
+      let due = null;
+
+      const prioMatch = taskTitle.match(/priority:\s*(low|medium|high)/i);
+      if (prioMatch) {
+        priority = prioMatch[1].toLowerCase();
+        taskTitle = taskTitle.replace(/priority:\s*(low|medium|high)/i, '');
+      }
+
+      const dueMatch = taskTitle.match(/deadline:\s*([0-9\-\/]+)/i);
+      if (dueMatch) {
+        due = dueMatch[1].replace(/\//g, '-');
+        taskTitle = taskTitle.replace(/deadline:\s*([0-9\-\/]+)/i, '');
+      }
+
+      taskTitle = taskTitle.trim();
+
+      if (taskTitle && window.addNewTask) {
+        window.addNewTask(taskTitle, priority, due);
+        return `Task '${taskTitle}' added to board with priority ${priority}${due ? ' and due date ' + due : ''}, sir.`;
       }
     }
 
-    // 2. File/Folder Creation Matching
+    // Catch Folder/Project creation
     const fileMatch = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
     if (fileMatch) {
       const type = fileMatch[1];
