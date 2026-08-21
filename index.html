@@ -1,302 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S. — Interface</title>
-<meta name="description" content="A HUD-style personal assistant interface.">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J.A.R.V.I.S. HUD Interface</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ===================== Boot sequence overlay ===================== -->
-<div id="boot-overlay">
-  <div class="boot-log" id="boot-log" aria-live="polite"></div>
-  <div class="boot-bar"><div class="boot-bar-fill" id="boot-bar-fill"></div></div>
-  <button class="boot-skip" id="boot-skip">SKIP</button>
-</div>
-
-<!-- Ambient background glow (soft color washes behind the grid) -->
-<div id="ambient-glow"></div>
-
-<!-- Ambient particle background -->
-<canvas id="particle-field"></canvas>
-
-<div class="shell" id="shell">
-
-  <header>
-    <div class="brand">J<span>·</span>A<span>·</span>R<span>·</span>V<span>·</span>I<span>·</span>S</div>
-    <div class="header-controls">
-      <div class="status-line"><span class="dot"></span> SYSTEM ONLINE</div>
-      <button class="icon-btn" id="mute-toggle" title="Toggle sound" aria-pressed="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 8a5 5 0 0 1 0 8"/></svg>
-      </button>
-      <button class="icon-btn" id="settings-btn" title="API settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
-      </button>
+  <!-- HEADER NAVIGATION -->
+  <header class="hud-header">
+    <div class="brand">J·A·R·V·I·S</div>
+    <nav class="hud-nav" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="dashboard">DASHBOARD</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="comms">COMMS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="tasks">TASKS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="systems">SYSTEMS</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="workplace">WORKPLACE</button>
+    </nav>
+    <div class="system-status">
+      <span class="status-dot"></span> SYSTEM ONLINE
     </div>
   </header>
 
-  <p class="welcome">Welcome back, sir
-    <span class="sub" id="welcome-sub">All systems nominal</span>
-  </p>
+  <!-- MAIN CONTAINER -->
+  <main class="hud-main">
 
-  <nav class="tab-nav" role="tablist" aria-label="Sections">
-    <button class="tab-btn" role="tab" aria-selected="true" data-tab="dashboard">DASHBOARD</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="comms">COMMS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="tasks">TASKS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="systems">SYSTEMS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="workplace">WORKPLACE</button>
-  </nav>
-
-  <!-- =========================================================
-     PANEL: DASHBOARD
-     ========================================================= -->
-<section class="panel active" id="panel-dashboard" role="tabpanel">
-  
-  <!-- ELECTRIC DIGITAL CLOCK -->
-  <div class="electric-clock-container">
-    <div class="clock-display">
-      <span id="electric-time">00:00:00</span>
-      <span id="electric-ampm" class="ampm-badge">AM</span>
-    </div>
-    <div class="clock-meta">
-      <span id="electric-date">SYS.DATE --/--/----</span>
-      <span id="electric-zone" class="zone-badge">UTC</span>
-    </div>
-  </div>
-
-  <!-- DRAGGABLE DASHBOARD WIDGETS -->
-  <div class="dashboard-widgets-area" id="dashboard-widgets-area">
-    
-    <!-- Focus / Pomodoro Timer -->
-    <div class="hud-widget pomodoro-widget" id="widget-pomo" draggable="true">
-      <div class="widget-header drag-handle">
-        <span class="widget-title">⋮⋮ FOCUS TIMER</span>
-        <span id="pomo-mode" class="pomo-mode-badge">FOCUS</span>
-      </div>
-      <div class="pomo-display">
-        <span id="pomo-time">25:00</span>
-      </div>
-      <div class="pomo-controls">
-        <button id="pomo-toggle-btn" class="hud-btn primary">START</button>
-        <button id="pomo-reset-btn" class="hud-btn secondary">RESET</button>
-      </div>
-    </div>
-
-    <!-- Persistent Daily Notepad -->
-    <div class="hud-widget notepad-widget" id="widget-notepad" draggable="true">
-      <div class="widget-header drag-handle">
-        <span class="widget-title">⋮⋮ SCRATCHPAD</span>
-        <span id="notepad-status" class="notepad-status">SAVED</span>
-      </div>
-      <textarea id="daily-notepad" spellcheck="false" placeholder="Quick notes, code snippets, or ideas..."></textarea>
-    </div>
-
-    <!-- System Audio Visualizer / Ambient Synth -->
-    <div class="hud-widget audio-widget" id="widget-audio" draggable="true">
-      <div class="widget-header drag-handle">
-        <span class="widget-title">⋮⋮ AMBIENT GENERATOR</span>
-        <span id="audio-status" class="pomo-mode-badge">OFF</span>
-      </div>
-      <div class="audio-controls">
-        <select id="ambient-type" class="hud-select">
-          <option value="pink">Pink Noise (Focus)</option>
-          <option value="brown">Deep Drone (Calm)</option>
-          <option value="rain">Cabin Rain</option>
-        </select>
-        <button id="ambient-toggle-btn" class="hud-btn primary">PLAY</button>
-      </div>
-      <canvas id="audio-visualizer" width="260" height="35"></canvas>
-    </div>
-
-  </div>
-
-  <div class="hud-core" id="hud-core">
-    <div class="hud-sphere" aria-hidden="true">
-      <div class="orbit orbit-a"><span class="orbit-point"></span></div>
-      <div class="orbit orbit-b"><span class="orbit-point"></span></div>
-    </div>
-  </div>
-
-</section>
-
-  <!-- ===================== Comms panel ===================== -->
-  <section class="panel" id="panel-comms" role="tabpanel">
-    <div class="chat-window">
-      <div class="chat-log" id="chat-log">
-        <p class="chat-empty" id="chat-empty">No transmissions yet. Say hello, sir.</p>
-      </div>
-    </div>
-    <div class="command-bar">
-      <form id="command-form">
-        <span class="prompt-glyph">&gt;</span>
-        <input id="command-input" type="text" placeholder="Type a command…" autocomplete="off">
-        <button type="button" class="mic-btn" id="mic-btn" title="Voice input">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
-        </button>
-        <button type="submit">Send</button>
-      </form>
-    </div>
-    <p class="chat-hint" id="chat-hint">No API key set — <button type="button" id="chat-hint-btn">add your Google AI Studio API key</button> to enable live responses.</p>
-    <p class="chat-hint" id="handsfree-hint" style="display:none;">Hands-free mode is on — JARVIS will listen again automatically after each reply. Click the mic to stop.</p>
-  </section>
-
-  <!-- ===================== Tasks panel ===================== -->
-  <section class="panel" id="panel-tasks" role="tabpanel">
-    <div class="tasks-wrap">
-      <h2>Task Board</h2>
-
-      <form class="task-form" id="task-form">
-        <input id="task-input" type="text" placeholder="Add a new task…" autocomplete="off">
-        <select id="task-priority" aria-label="Priority">
-          <option value="low">Low</option>
-          <option value="medium" selected>Medium</option>
-          <option value="high">High</option>
-        </select>
-        <input id="task-due" type="date" aria-label="Due date">
-        <button type="submit">Add</button>
-      </form>
-
-      <nav class="task-tab-nav" role="tablist" aria-label="Task category">
-        <button class="task-tab-btn" role="tab" aria-selected="true" data-status="todo">TO DO</button>
-        <button class="task-tab-btn" role="tab" aria-selected="false" data-status="developing">DEVELOPING</button>
-        <button class="task-tab-btn" role="tab" aria-selected="false" data-status="done">COMPLETED</button>
-      </nav>
-
-      <div class="kanban" id="kanban" data-active="todo">
-
-        <div class="kanban-col" data-status="todo">
-          <div class="kanban-head">
-            <span>To Do</span>
-            <span class="kanban-count" id="count-todo">0</span>
-          </div>
-          <ul class="kanban-list" id="list-todo"></ul>
-          <p class="kanban-empty" id="empty-todo">Nothing queued.</p>
-        </div>
-
-        <div class="kanban-col" data-status="developing">
-          <div class="kanban-head">
-            <span>Developing</span>
-            <span class="kanban-count" id="count-developing">0</span>
-          </div>
-          <ul class="kanban-list" id="list-developing"></ul>
-          <p class="kanban-empty" id="empty-developing">Nothing in progress.</p>
-        </div>
-
-        <div class="kanban-col" data-status="done">
-          <div class="kanban-head">
-            <span>Completed</span>
-            <span class="kanban-count" id="count-done">0</span>
-          </div>
-          <ul class="kanban-list" id="list-done"></ul>
-          <p class="kanban-empty" id="empty-done">Nothing completed yet.</p>
-        </div>
-
-      </div>
-
-      <p class="task-summary" id="task-summary"></p>
-    </div>
-  </section>
-
-  <!-- ===================== Systems panel ===================== -->
-  <section class="panel" id="panel-systems" role="tabpanel">
-    <div class="systems-grid">
-
-      <div class="systems-card">
-        <h3>Power</h3>
-        <div class="row"><span>Battery</span><span id="sys-battery">Checking…</span></div>
-        <div class="row"><span>Charging</span><span id="sys-charging">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Connection</h3>
-        <div class="row"><span>Status</span><span id="sys-online">--</span></div>
-        <div class="row"><span>Type</span><span id="sys-conn-type">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Display</h3>
-        <div class="row"><span>Resolution</span><span id="sys-resolution">--</span></div>
-        <div class="row"><span>Platform</span><span id="sys-platform">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Interface Theme</h3>
-        <div class="theme-swatches">
-          <button class="swatch blue active" data-theme="blue" title="Blue" aria-label="Blue theme"></button>
-          <button class="swatch amber" data-theme="amber" title="Amber" aria-label="Amber theme"></button>
-          <button class="swatch red" data-theme="red" title="Red" aria-label="Red theme"></button>
-        </div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Audio</h3>
-        <div class="mute-row">
-          <span style="font-size:13px;color:var(--text-lo);">Interface sound</span>
-          <button class="toggle" id="sound-toggle" aria-pressed="false"></button>
-        </div>
-        <div class="mute-row" style="margin-top:12px;">
-          <span style="font-size:13px;color:var(--text-lo);">Voice replies</span>
-          <button class="toggle" id="voice-toggle" aria-pressed="false"></button>
-        </div>
-        <div class="mute-row" style="margin-top:12px;">
-          <span style="font-size:13px;color:var(--text-lo);">Hands-free mode</span>
-          <button class="toggle" id="handsfree-toggle" aria-pressed="false"></button>
-        </div>
-      </div>
-
-      <div class="systems-card">
-        <h3>API Key</h3>
-        <div class="row"><span>Status</span><span id="sys-api-status">Not set</span></div>
-        <button class="icon-btn" id="sys-settings-btn" style="width:auto; padding:0 12px; height:30px; margin-top:10px; font-family:var(--font-display); font-size:10px; letter-spacing:0.1em;">MANAGE</button>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ===================== Workplace panel ===================== -->
-  <section class="panel" id="panel-workplace" role="tabpanel">
-    <div class="tasks-wrap">
-      <h2>Workplace Directory</h2>
-      <p style="font-size:13px; color:var(--text-lo); margin-bottom: 20px;">Virtual File System & Project Storage</p>
+    <!-- =========================================================
+         PANEL 1: DASHBOARD
+         ========================================================= -->
+    <section class="panel active" id="panel-dashboard" role="tabpanel">
       
-      <div id="file-tree" class="file-tree">
-        <p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS to create one, sir.</p>
+      <!-- ELECTRIC DIGITAL CLOCK -->
+      <div class="electric-clock-container">
+        <div class="clock-display">
+          <span id="electric-time">00:00:00</span>
+          <span id="electric-ampm" class="ampm-badge">AM</span>
+        </div>
+        <div class="clock-meta">
+          <span id="electric-date">SYS.DATE --/--/----</span>
+          <span id="electric-zone" class="zone-badge">UTC</span>
+        </div>
       </div>
-    </div>
-  </section>
 
-  <footer>
-    <span>BUILD 0.2.0</span>
-    <span id="footer-status">ALL SYSTEMS NOMINAL</span>
-  </footer>
+      <!-- DRAGGABLE DASHBOARD WIDGETS -->
+      <div class="dashboard-widgets-area" id="dashboard-widgets-area">
+        
+        <!-- Focus / Pomodoro Timer -->
+        <div class="hud-widget pomodoro-widget" id="widget-pomo" draggable="true">
+          <div class="widget-header drag-handle">
+            <span class="widget-title">⋮⋮ FOCUS TIMER</span>
+            <span id="pomo-mode" class="pomo-mode-badge">FOCUS</span>
+          </div>
+          <div class="pomo-display">
+            <span id="pomo-time">25:00</span>
+          </div>
+          <div class="pomo-controls">
+            <button id="pomo-toggle-btn" class="hud-btn primary">START</button>
+            <button id="pomo-reset-btn" class="hud-btn secondary">RESET</button>
+          </div>
+        </div>
 
-</div>
+        <!-- Persistent Daily Notepad -->
+        <div class="hud-widget notepad-widget" id="widget-notepad" draggable="true">
+          <div class="widget-header drag-handle">
+            <span class="widget-title">⋮⋮ SCRATCHPAD</span>
+            <span id="notepad-status" class="notepad-status">SAVED</span>
+          </div>
+          <textarea id="daily-notepad" spellcheck="false" placeholder="Quick notes, code snippets, or ideas..."></textarea>
+        </div>
 
-<!-- ===================== Settings modal ===================== -->
-<div class="modal-overlay" id="settings-modal">
-  <div class="modal">
-    <h2>Google Gemini API Key</h2>
-    <p>
-      Paste your Google AI Studio API key to enable live Gemini-powered responses in COMMS.
-      It's saved in this browser's local storage so you won't need to re-enter it next visit — it is never sent anywhere except directly to Google's API.
-      Get a free key at
-      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
-      Because this is a static site, the key is stored in plain text in this browser — don't use this on a shared or public computer.
-    </p>
-    <input type="password" id="api-key-input" placeholder="AIza…" autocomplete="off">
-    <div class="modal-actions">
-      <button class="secondary" id="settings-cancel">Close</button>
-      <button class="primary" id="settings-save">Save Key</button>
-    </div>
-  </div>
-</div>
+        <!-- System Audio Visualizer / Ambient Synth -->
+        <div class="hud-widget audio-widget" id="widget-audio" draggable="true">
+          <div class="widget-header drag-handle">
+            <span class="widget-title">⋮⋮ AMBIENT GENERATOR</span>
+            <span id="audio-status" class="pomo-mode-badge">OFF</span>
+          </div>
+          <div class="audio-controls">
+            <select id="ambient-type" class="hud-select">
+              <option value="pink">Pink Noise (Focus)</option>
+              <option value="brown">Deep Drone (Calm)</option>
+              <option value="rain">Cabin Rain</option>
+            </select>
+            <button id="ambient-toggle-btn" class="hud-btn primary">PLAY</button>
+          </div>
+          <canvas id="audio-visualizer" width="260" height="35"></canvas>
+        </div>
 
-<script src="app.js"></script>
+      </div>
+
+    </section> <!-- FIN DU PANEL DASHBOARD -->
+
+    <!-- =========================================================
+         PANEL 2: COMMS
+         ========================================================= -->
+    <section class="panel" id="panel-comms" role="tabpanel">
+      <div class="comms-container">
+        <div class="comms-log" id="comms-log">
+          <p class="sys-msg">No transmissions yet. Say hello, sir.</p>
+        </div>
+        <form class="comms-input-form" id="comms-form" onsubmit="return false;">
+          <span class="prompt-symbol">&gt;</span>
+          <input type="text" class="hud-input" id="comms-input" placeholder="Type a command..." autocomplete="off">
+          <button type="submit" class="hud-btn primary">SEND</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANEL 3: TASKS
+         ========================================================= -->
+    <section class="panel" id="panel-tasks" role="tabpanel">
+      <div class="tasks-container">
+        <h2 class="panel-title">Task Board</h2>
+        
+        <!-- Formulaire d'ajout -->
+        <div class="task-add-bar">
+          <input type="text" class="hud-input" id="task-title-input" placeholder="Add a new task...">
+          <select class="hud-select" id="task-priority-input">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+          </select>
+          <input type="date" class="hud-input hud-date" id="task-date-input">
+          <button class="hud-btn primary" id="add-task-btn">Add Task</button>
+        </div>
+
+        <!-- Filtres / Statuts -->
+        <div class="task-tabs">
+          <button class="hud-btn task-tab-btn active" data-filter="all">ALL</button>
+          <button class="hud-btn task-tab-btn" data-filter="todo">TO DO</button>
+          <button class="hud-btn task-tab-btn" data-filter="developing">DEVELOPING</button>
+          <button class="hud-btn task-tab-btn" data-filter="completed">COMPLETED</button>
+        </div>
+
+        <!-- Liste des tâches -->
+        <ul class="task-list" id="task-list">
+          <li class="task-item">
+            <div class="task-details">
+              <span class="task-title">Finish reading Between the world and me</span>
+              <span class="task-meta"><span class="badge high">High</span> Due Sep 1, 2026</span>
+            </div>
+            <div class="task-actions">
+              <button class="hud-btn icon-btn" title="Move status">&gt;</button>
+              <button class="hud-btn icon-btn danger" title="Delete">&times;</button>
+            </div>
+          </li>
+          <li class="task-item">
+            <div class="task-details">
+              <span class="task-title">Finish overview of SES book</span>
+              <span class="task-meta"><span class="badge high">High</span> Due Sep 1, 2026</span>
+            </div>
+            <div class="task-actions">
+              <button class="hud-btn icon-btn" title="Move status">&gt;</button>
+              <button class="hud-btn icon-btn danger" title="Delete">&times;</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANEL 4: SYSTEMS
+         ========================================================= -->
+    <section class="panel" id="panel-systems" role="tabpanel">
+      <div class="systems-container">
+        <h2 class="panel-title">System Diagnostics</h2>
+        <p class="sys-msg">All primary systems operational.</p>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         PANEL 5: WORKPLACE
+         ========================================================= -->
+    <section class="panel" id="panel-workplace" role="tabpanel">
+      <div class="workplace-container">
+        <h2 class="panel-title">Workplace Environment</h2>
+        <p class="sys-msg">Workspace initialized.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
