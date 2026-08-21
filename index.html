@@ -30,7 +30,11 @@
          PANEL 1: DASHBOARD
          ========================================================= -->
     <section class="panel active" id="panel-dashboard" role="tabpanel">
-      
+      <div class="welcome-banner">
+        <h1>WELCOME BACK, SIR</h1>
+        <p class="subtitle">All systems nominal</p>
+      </div>
+
       <!-- ELECTRIC DIGITAL CLOCK -->
       <div class="electric-clock-container">
         <div class="clock-display">
@@ -88,21 +92,21 @@
         </div>
 
       </div>
-
-    </section> <!-- FIN DU PANEL DASHBOARD -->
+    </section>
 
     <!-- =========================================================
          PANEL 2: COMMS
          ========================================================= -->
     <section class="panel" id="panel-comms" role="tabpanel">
       <div class="comms-container">
+        <h2 class="panel-title">Communications Hub</h2>
         <div class="comms-log" id="comms-log">
-          <p class="sys-msg">No transmissions yet. Say hello, sir.</p>
+          <p class="sys-msg">&gt; System initialized. Awaiting user input...</p>
         </div>
         <form class="comms-input-form" id="comms-form" onsubmit="return false;">
           <span class="prompt-symbol">&gt;</span>
-          <input type="text" class="hud-input" id="comms-input" placeholder="Type a command..." autocomplete="off">
-          <button type="submit" class="hud-btn primary">SEND</button>
+          <input type="text" class="hud-input" id="comms-input" placeholder="Type a command or message..." autocomplete="off">
+          <button type="submit" class="hud-btn primary" id="comms-send-btn">SEND</button>
         </form>
       </div>
     </section>
@@ -166,7 +170,20 @@
     <section class="panel" id="panel-systems" role="tabpanel">
       <div class="systems-container">
         <h2 class="panel-title">System Diagnostics</h2>
-        <p class="sys-msg">All primary systems operational.</p>
+        <div class="sys-grid">
+          <div class="sys-card">
+            <h3>CPU CORE</h3>
+            <p class="status-val">12% UTILIZATION</p>
+          </div>
+          <div class="sys-card">
+            <h3>MEMORY</h3>
+            <p class="status-val">4.2 GB / 16 GB</p>
+          </div>
+          <div class="sys-card">
+            <h3>NETWORK</h3>
+            <p class="status-val">ENCRYPTED (120 Mbps)</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -176,7 +193,7 @@
     <section class="panel" id="panel-workplace" role="tabpanel">
       <div class="workplace-container">
         <h2 class="panel-title">Workplace Environment</h2>
-        <p class="sys-msg">Workspace initialized.</p>
+        <p class="sys-msg">Workspace initialized and ready for deployment.</p>
       </div>
     </section>
 
