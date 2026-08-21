@@ -8,6 +8,11 @@
   --accent-dim: rgba(79, 216, 230, 0.25);
   --text-main: #e0f7fa;
   --text-muted: #88c0d0;
+  --danger: #ff5252;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -15,8 +20,100 @@ body {
   padding: 0;
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow-x: hidden;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =========================================================
+   HEADER & NAVIGATION
+   ========================================================= */
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(4, 10, 16, 0.95);
+  border-bottom: 1px solid var(--accent-dim);
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--accent);
+}
+
+.hud-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid rgba(79, 216, 230, 0.2);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover,
+.tab-btn.active {
+  background: rgba(79, 216, 230, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px rgba(79, 216, 230, 0.3);
+}
+
+.system-status {
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* =========================================================
+   PANELS CONTROLS
+   ========================================================= */
+.hud-main {
+  flex: 1;
+  padding: 20px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.panel {
+  display: none !important;
+}
+
+.panel.active {
+  display: block !important;
+}
+
+.panel-title {
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  color: var(--accent);
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  border-bottom: 1px dashed var(--accent-dim);
+  padding-bottom: 8px;
 }
 
 /* =========================================================
@@ -30,7 +127,7 @@ body {
   background: rgba(8, 16, 26, 0.85);
   border: 1px solid var(--accent-dim);
   border-radius: 10px;
-  box-shadow: 0 0 20px rgba(79, 216, 230, 0.15), inset 0 0 10px rgba(79, 216, 230, 0.05);
+  box-shadow: 0 0 20px rgba(79, 216, 230, 0.15);
   backdrop-filter: blur(8px);
 }
 
@@ -42,19 +139,18 @@ body {
 }
 
 #electric-time {
-  font-family: 'Courier New', Courier, monospace;
+  font-family: monospace;
   font-size: 2.8rem;
   font-weight: 800;
   color: var(--accent);
   letter-spacing: 2px;
-  text-shadow: 0 0 12px rgba(79, 216, 230, 0.7), 0 0 25px rgba(79, 216, 230, 0.3);
+  text-shadow: 0 0 12px rgba(79, 216, 230, 0.7);
 }
 
 .ampm-badge {
   font-size: 0.85rem;
   font-weight: 700;
   color: #1c5e68;
-  letter-spacing: 1.5px;
 }
 
 .clock-meta {
@@ -66,32 +162,19 @@ body {
   border-top: 1px dashed rgba(79, 216, 230, 0.2);
   font-size: 0.7rem;
   color: var(--text-muted);
-  letter-spacing: 1.2px;
 }
 
 /* =========================================================
-   DASHBOARD-ONLY DRAGGABLE WIDGETS
+   DASHBOARD DRAGGABLE WIDGETS
    ========================================================= */
-#panel-dashboard .dashboard-widgets-area {
+.dashboard-widgets-area {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 18px;
   width: 100%;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 10px;
-  box-sizing: border-box;
-  position: relative;
-  min-height: 220px;
 }
 
-/* Visibilité stricte : caché hors du panneau Dashboard */
-.panel:not(#panel-dashboard) .dashboard-widgets-area {
-  display: none !important;
-}
-
-/* Style des cartes de widgets */
 .hud-widget {
   background: var(--panel-bg);
   border: 1px solid var(--accent-dim);
@@ -100,35 +183,11 @@ body {
   backdrop-filter: blur(8px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   flex: 1 1 260px;
-  max-width: 310px;
+  max-width: 320px;
   user-select: none;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.hud-widget::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: var(--accent);
-  opacity: 0.4;
-  transition: opacity 0.3s ease;
-}
-
-.hud-widget:hover {
-  border-color: rgba(79, 216, 230, 0.5);
-  box-shadow: 0 0 15px rgba(79, 216, 230, 0.18);
-}
-
-.hud-widget:hover::before {
-  opacity: 1;
-}
-
-/* Drag & Drop Visuals */
 .drag-handle {
   cursor: grab;
 }
@@ -137,19 +196,6 @@ body {
   cursor: grabbing;
 }
 
-.hud-widget.is-dragging {
-  opacity: 0.4;
-  transform: scale(0.98);
-  border-color: var(--accent);
-  box-shadow: 0 0 18px rgba(79, 216, 230, 0.4);
-}
-
-.hud-widget.drag-over {
-  border-style: dashed;
-  border-color: var(--accent);
-}
-
-/* En-tête des widgets */
 .widget-header {
   display: flex;
   justify-content: space-between;
@@ -164,10 +210,8 @@ body {
   font-weight: 700;
   letter-spacing: 1.8px;
   color: var(--accent);
-  text-transform: uppercase;
 }
 
-/* Pomodoro Widget */
 .pomo-mode-badge {
   font-size: 0.6rem;
   padding: 2px 6px;
@@ -175,12 +219,11 @@ body {
   background: rgba(28, 94, 104, 0.6);
   border: 1px solid rgba(79, 216, 230, 0.3);
   color: #fff;
-  letter-spacing: 1px;
 }
 
 .pomo-display {
   text-align: center;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: monospace;
   font-size: 2.3rem;
   font-weight: 700;
   color: var(--text-main);
@@ -193,12 +236,46 @@ body {
   gap: 8px;
 }
 
+#daily-notepad {
+  width: 100%;
+  height: 95px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(79, 216, 230, 0.15);
+  color: var(--text-main);
+  font-family: monospace;
+  font-size: 0.8rem;
+  padding: 8px;
+  border-radius: 4px;
+  resize: none;
+  outline: none;
+}
+
+#daily-notepad:focus {
+  border-color: var(--accent);
+}
+
+.audio-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#audio-visualizer {
+  width: 100%;
+  height: 35px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+}
+
+/* =========================================================
+   FORM ELEMENTS (INPUTS, BUTTONS, SELECTS)
+   ========================================================= */
 .hud-btn {
   background: rgba(8, 20, 30, 0.8);
   border: 1px solid var(--accent-dim);
   color: var(--accent);
   padding: 6px 12px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   border-radius: 4px;
   cursor: pointer;
@@ -211,68 +288,162 @@ body {
   box-shadow: 0 0 10px rgba(79, 216, 230, 0.5);
 }
 
-/* Scratchpad Widget */
-.notepad-status {
-  font-size: 0.6rem;
-  color: #888;
-  letter-spacing: 1px;
+.hud-btn.danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(255, 82, 82, 0.5);
 }
 
-#daily-notepad {
-  width: 100%;
-  height: 95px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(79, 216, 230, 0.15);
+.hud-input,
+.hud-select {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--accent-dim);
   color: var(--text-main);
-  font-family: monospace;
+  padding: 6px 10px;
   font-size: 0.8rem;
-  padding: 8px;
   border-radius: 4px;
-  box-sizing: border-box;
-  resize: none;
   outline: none;
-  transition: border-color 0.3s ease;
 }
 
-#daily-notepad:focus {
+.hud-input:focus,
+.hud-select:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(79, 216, 230, 0.3);
 }
 
-/* Audio Widget */
-.audio-controls {
+/* =========================================================
+   COMMS PANEL
+   ========================================================= */
+.comms-container {
+  background: var(--panel-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.comms-log {
+  min-height: 180px;
+  margin-bottom: 16px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.comms-input-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.prompt-symbol {
+  color: var(--accent);
+  font-family: monospace;
+  font-weight: bold;
+}
+
+.comms-input-form .hud-input {
+  flex: 1;
+}
+
+/* =========================================================
+   TASKS PANEL
+   ========================================================= */
+.tasks-container {
+  background: var(--panel-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.task-add-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.task-add-bar .hud-input[type="text"] {
+  flex: 2;
+  min-width: 200px;
+}
+
+.task-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
 }
 
-.hud-select {
-  flex: 1;
+.task-tab-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.task-tab-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79, 216, 230, 0.1);
+}
+
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(79, 216, 230, 0.2);
-  color: var(--text-main);
-  border-radius: 4px;
-  padding: 5px 8px;
+  border: 1px solid rgba(79, 216, 230, 0.15);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.task-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-title {
+  font-size: 0.9rem;
+}
+
+.task-meta {
   font-size: 0.72rem;
-  outline: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-#audio-visualizer {
-  width: 100%;
-  height: 35px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 4px;
-  display: block;
+.badge {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
 }
 
-/* Responsivité mobile */
-@media (max-width: 850px) {
-  #panel-dashboard .dashboard-widgets-area {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .hud-widget {
-    max-width: 100%;
-    width: 100%;
-  }
+.badge.high {
+  background: rgba(255, 82, 82, 0.2);
+  color: var(--danger);
+  border: 1px solid rgba(255, 82, 82, 0.4);
+}
+
+.task-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  padding: 4px 8px;
+  font-size: 0.8rem;
 }
