@@ -91,17 +91,12 @@ const Sound = (() => {
 
 /* =========================================================
    3. CIRCUIT BOARD FIELD
-   A generated network of PCB-style traces — right-angle paths
-   with junction pads, laid out on the same grid as the CSS
-   background — with small glowing signals traveling along
-   them, like current pulsing through a real circuit board.
-   Colors track the active theme automatically.
    ========================================================= */
 (function circuitBoard(){
   const canvas = document.getElementById('particle-field');
   if (reducedMotion){ canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
-  const GRID = 48; // must match body background-size in style.css
+  const GRID = 48;
   let w, h, traces, signals;
 
   function themeColor(varName, fallback){
@@ -109,7 +104,6 @@ const Sound = (() => {
     return v || fallback;
   }
 
-  // ---- Build a network of right-angle trace paths (like copper traces) ----
   function buildTraces(){
     const cols = Math.max(4, Math.floor(w / GRID));
     const rows = Math.max(4, Math.floor(h / GRID));
@@ -121,10 +115,10 @@ const Sound = (() => {
       let y = Math.floor(Math.random() * rows) * GRID;
       const points = [{ x, y }];
       let horizontal = Math.random() < 0.5;
-      const segments = 3 + Math.floor(Math.random() * 4); // 3–6 turns per trace
+      const segments = 3 + Math.floor(Math.random() * 4);
 
       for (let s = 0; s < segments; s++){
-        const runCells = 1 + Math.floor(Math.random() * 3); // 1–3 grid cells per run
+        const runCells = 1 + Math.floor(Math.random() * 3);
         const dir = Math.random() < 0.5 ? 1 : -1;
         if (horizontal){
           x = Math.min(cols * GRID, Math.max(0, x + dir * runCells * GRID));
@@ -132,10 +126,9 @@ const Sound = (() => {
           y = Math.min(rows * GRID, Math.max(0, y + dir * runCells * GRID));
         }
         points.push({ x, y });
-        horizontal = !horizontal; // right-angle turn each segment
+        horizontal = !horizontal;
       }
 
-      // precompute segment lengths + total length for signal interpolation
       let total = 0;
       const segLens = [];
       for (let p = 1; p < points.length; p++){
@@ -148,7 +141,6 @@ const Sound = (() => {
     return list;
   }
 
-  // Position along a trace at progress t (0–1), used to draw signal pulses
   function pointAtProgress(trace, t){
     let dist = Math.max(0, Math.min(1, t)) * trace.total;
     for (let i = 0; i < trace.segLens.length; i++){
@@ -166,7 +158,7 @@ const Sound = (() => {
   function spawnSignal(){
     return {
       traceIndex: Math.floor(Math.random() * traces.length),
-      t: Math.random() * -0.4, // stagger start so they don't all pulse in sync
+      t: Math.random() * -0.4,
       speed: 0.0025 + Math.random() * 0.004,
       color: Math.random() < 0.72 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f')
     };
@@ -193,7 +185,6 @@ const Sound = (() => {
       trace.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
       ctx.stroke();
 
-      // small solder-pad rings at every joint/junction
       ctx.fillStyle = traceColor;
       trace.points.forEach(p => {
         ctx.beginPath();
@@ -208,7 +199,7 @@ const Sound = (() => {
     signals.forEach(sig => {
       sig.t += sig.speed;
       if (sig.t > 1.15){ Object.assign(sig, spawnSignal()); return; }
-      if (sig.t < 0) return; // still in its staggered delay
+      if (sig.t < 0) return;
 
       const trace = traces[sig.traceIndex];
       const head = pointAtProgress(trace, sig.t);
@@ -264,7 +255,6 @@ const Sound = (() => {
       const targetPanel = document.getElementById(`panel-${btn.dataset.tab}`);
       if (targetPanel) targetPanel.classList.add('active');
 
-      // Refresh Virtual FS when Workplace tab is opened
       if (btn.dataset.tab === 'workplace' && typeof window.renderFileTree === 'function') {
         window.renderFileTree();
       }
@@ -333,7 +323,7 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   7. TASKS PANEL
+   7. TASKS PANEL (Exposed globally for Comms direct creation)
    ========================================================= */
 (function tasks(){
   const form = document.getElementById('task-form');
@@ -388,6 +378,19 @@ const Sound = (() => {
   let tasksArr = load();
   let nextId = tasksArr.reduce((max, t) => Math.max(max, t.id), 0) + 1;
   let draggedId = null;
+
+  window.addNewTask = function(text, priority = 'medium', due = null) {
+    tasksArr.push({
+      id: nextId++,
+      text: text,
+      status: 'todo',
+      priority: priority,
+      due: due
+    });
+    save();
+    render();
+    if (typeof Sound !== 'undefined') Sound.taskDone();
+  };
 
   function moveTask(task, newStatus){
     if (task.status === newStatus) return;
@@ -499,19 +502,11 @@ const Sound = (() => {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
-    tasksArr.push({
-      id: nextId++,
-      text,
-      status: 'todo',
-      priority: priorityInput.value,
-      due: dueInput.value || null
-    });
+    window.addNewTask(text, priorityInput.value, dueInput.value || null);
     input.value = '';
     dueInput.value = '';
     priorityInput.value = 'medium';
     Sound.click();
-    save();
-    render();
   });
 
   tabButtons.forEach(btn => {
@@ -737,7 +732,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       if (voiceReplyEnabled){
         speak(reply);
       } else {
-        // No voice output — still give a brief visual reaction to the reply
         setHudState('speaking');
         setTimeout(() => setHudState(null), 1000);
       }
@@ -756,14 +750,12 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     Sound.send();
     input.value = '';
 
-    // Interception par le processeur de commandes locales (Workplace VFS)
-    if (window.processFileCommand) {
-      const localResult = await window.processFileCommand(text);
+    if (window.processLocalCommand) {
+      const localResult = await window.processLocalCommand(text);
       if (localResult) {
         addMessage('jarvis', localResult);
-        if (typeof window.renderFileTree === 'function') window.renderFileTree();
         if (voiceReplyEnabled) speak(localResult);
-        return; // Interrompt l'envoi vers Gemini si une commande locale est exécutée
+        return;
       }
     }
 
@@ -837,7 +829,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM (IndexedDB Storage)
+   13. BROWSER VIRTUAL FILE SYSTEM + FILE VIEWER & EDITOR
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -878,6 +870,17 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     });
   }
 
+  function getItem(path) {
+    return new Promise((resolve, reject) => {
+      if (!db) return resolve(null);
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(path);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
   function getAllItems() {
     return new Promise((resolve, reject) => {
       if (!db) return resolve([]);
@@ -886,6 +889,44 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       const req = store.getAll();
       req.onsuccess = () => resolve(req.result);
       req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  /* File Editor Modal Logic */
+  function openEditorModal(item) {
+    let modal = document.getElementById('file-editor-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'file-editor-modal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-card" style="max-width:700px; width:90%;">
+          <div class="modal-title" id="editor-filename">Edit File</div>
+          <textarea id="editor-textarea" style="width:100%; height:300px; background:var(--bg-card); color:var(--fg-main); border:1px solid var(--accent-dim); font-family:monospace; padding:10px; margin:15px 0; border-radius:4px; box-sizing:border-box; resize:vertical;"></textarea>
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button id="editor-cancel-btn" class="hud-btn secondary">Cancel</button>
+            <button id="editor-save-btn" class="hud-btn primary">Save Changes</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      document.getElementById('editor-cancel-btn').addEventListener('click', () => modal.classList.remove('open'));
+    }
+
+    document.getElementById('editor-filename').textContent = `Editing: ${item.path}`;
+    const textarea = document.getElementById('editor-textarea');
+    textarea.value = item.content || '';
+    modal.classList.add('open');
+
+    const saveBtn = document.getElementById('editor-save-btn');
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+    newSaveBtn.addEventListener('click', async () => {
+      await saveItem(item.path, item.type, textarea.value);
+      if (typeof Sound !== 'undefined') Sound.taskDone();
+      modal.classList.remove('open');
     });
   }
 
@@ -906,8 +947,15 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     items.forEach(item => {
       const li = document.createElement('li');
       li.className = `fs-item ${item.type}`;
+      li.style.cursor = item.type === 'file' ? 'pointer' : 'default';
       const icon = item.type === 'folder' ? '📁' : '📄';
       li.innerHTML = `<span>${icon} ${item.path}</span>`;
+
+      if (item.type === 'file') {
+        li.title = 'Click to open/edit file';
+        li.addEventListener('click', () => openEditorModal(item));
+      }
+
       list.appendChild(li);
     });
 
@@ -936,16 +984,29 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  // Parser vocale et texte optimisé (Nettoyage de la ponctuation automatique du micro)
-  window.processFileCommand = async function (userText) {
+  /* Universal Local Command Parser (Handles Files + Tasks via Comms) */
+  window.processLocalCommand = async function (userText) {
     const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
-    const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
 
-    if (match) {
-      const type = match[1];
-      const name = match[2].trim().replace(/\s+/g, '-');
+    // 1. Task Creation Matching
+    const taskMatch = text.match(/(?:create|add|make)\s+(?:a\s+)?task\s+(?:to\s+)?(.+)/i);
+    if (taskMatch) {
+      const taskName = taskMatch[1].trim();
+      if (window.addNewTask) {
+        window.addNewTask(taskName);
+        return `Task '${taskName}' has been added to your board, sir.`;
+      }
+    }
+
+    // 2. File/Folder Creation Matching
+    const fileMatch = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
+    if (fileMatch) {
+      const type = fileMatch[1];
+      const name = fileMatch[2].trim().replace(/\s+/g, '-');
       const isProject = type === 'project';
-      return await createVirtualItem(name, isProject);
+      const res = await createVirtualItem(name, isProject);
+      if (typeof window.renderFileTree === 'function') window.renderFileTree();
+      return res;
     }
 
     return null;
