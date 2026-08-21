@@ -897,3 +897,99 @@ footer{
   font-style: italic;
   font-size: 13px;
 }
+/* Dashboard Specific Layout */
+#panel-dashboard .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin: 20px 0;
+}
+
+.hud-widget {
+  background: var(--bg-card, rgba(10, 20, 30, 0.7));
+  border: 1px solid var(--accent-dim, #1c5e68);
+  border-radius: 6px;
+  padding: 14px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+
+.widget-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent, #4fd8e6);
+  text-transform: uppercase;
+}
+
+/* Pomodoro Styles */
+.pomo-mode-badge {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--accent-dim, #1c5e68);
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.pomo-display {
+  text-align: center;
+  font-family: monospace;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--fg-main, #e0f7fa);
+  margin: 12px 0;
+  text-shadow: 0 0 8px var(--accent-dim, #1c5e68);
+}
+
+.pomo-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.pomo-controls button {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 0.75rem;
+}
+
+/* Scratchpad Styles */
+.notepad-status {
+  font-size: 0.65rem;
+  color: var(--accent-dim, #888);
+  letter-spacing: 1px;
+  transition: color 0.3s ease;
+}
+
+.notepad-status.unsaved {
+  color: var(--warn, #e6a04f);
+}
+
+#daily-notepad {
+  width: 100%;
+  height: 140px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--accent-dim, #1c5e68);
+  color: var(--fg-main, #e0f7fa);
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 10px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  resize: vertical;
+  outline: none;
+}
+
+#daily-notepad:focus {
+  border-color: var(--accent, #4fd8e6);
+  box-shadow: 0 0 5px var(--accent-dim, #1c5e68);
+}
