@@ -1155,192 +1155,67 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   initDB();
 })();
 /* =========================================================
-   DASHBOARD WIDGETS ENGINE (Timer, Notepad & Ambient Audio)
+   DRAGGABLE DASHBOARD WIDGETS ENGINE
    ========================================================= */
-(function initDashboardEngine() {
-  // 1. Pomodoro Logic
-  const timeDisplay = document.getElementById('pomo-time');
-  const modeBadge = document.getElementById('pomo-mode');
-  const toggleBtn = document.getElementById('pomo-toggle-btn');
-  const resetBtn = document.getElementById('pomo-reset-btn');
+(function initDraggableWidgets() {
+  const container = document.getElementById('dashboard-widgets-area');
+  if (!container) return;
 
-  if (timeDisplay && toggleBtn && resetBtn) {
-    const FOCUS_TIME = 25 * 60;
-    const BREAK_TIME = 5 * 60;
-    let timeLeft = FOCUS_TIME;
-    let timerId = null;
-    let isBreak = false;
+  const widgets = Array.from(container.querySelectorAll('.hud-widget'));
+  let draggedItem = null;
 
-    const updateDisplay = () => {
-      const mins = Math.floor(timeLeft / 60);
-      const secs = timeLeft % 60;
-      timeDisplay.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    };
-
-    toggleBtn.addEventListener('click', () => {
-      if (typeof Sound !== 'undefined') Sound.click();
-
-      if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
-        toggleBtn.textContent = 'START';
-        toggleBtn.className = 'hud-btn primary';
-      } else {
-        toggleBtn.textContent = 'PAUSE';
-        toggleBtn.className = 'hud-btn secondary';
-
-        timerId = setInterval(() => {
-          timeLeft--;
-          if (timeLeft < 0) {
-            clearInterval(timerId);
-            timerId = null;
-
-            if (typeof Sound !== 'undefined') Sound.taskDone();
-
-            isBreak = !isBreak;
-            timeLeft = isBreak ? BREAK_TIME : FOCUS_TIME;
-
-            if (modeBadge) {
-              modeBadge.textContent = isBreak ? 'REST' : 'FOCUS';
-              modeBadge.style.background = isBreak ? 'var(--warn, #e6a04f)' : 'var(--accent-dim, #1c5e68)';
-            }
-
-            toggleBtn.textContent = 'START';
-            toggleBtn.className = 'hud-btn primary';
-          }
-          updateDisplay();
-        }, 1000);
-      }
-    });
-
-    resetBtn.addEventListener('click', () => {
-      if (typeof Sound !== 'undefined') Sound.click();
-      if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
-      }
-      isBreak = false;
-      timeLeft = FOCUS_TIME;
-      if (modeBadge) {
-        modeBadge.textContent = 'FOCUS';
-        modeBadge.style.background = 'var(--accent-dim, #1c5e68)';
-      }
-      toggleBtn.textContent = 'START';
-      toggleBtn.className = 'hud-btn primary';
-      updateDisplay();
-    });
-
-    updateDisplay();
-  }
-
-  // 2. Scratchpad Logic
-  const textarea = document.getElementById('daily-notepad');
-  const statusEl = document.getElementById('notepad-status');
-  const NOTEPAD_STORAGE_KEY = 'jarvis-daily-notepad';
-
-  if (textarea) {
-    textarea.value = localStorage.getItem(NOTEPAD_STORAGE_KEY) || '';
-    let saveDebounceTimer = null;
-
-    textarea.addEventListener('input', () => {
-      if (statusEl) {
-        statusEl.textContent = 'SAVING...';
-        statusEl.classList.add('unsaved');
-      }
-
-      clearTimeout(saveDebounceTimer);
-      saveDebounceTimer = setTimeout(() => {
-        localStorage.setItem(NOTEPAD_STORAGE_KEY, textarea.value);
-        if (statusEl) {
-          statusEl.textContent = 'SAVED';
-          statusEl.classList.remove('unsaved');
-        }
-      }, 600);
+  // Restore saved widget order from localStorage
+  const savedOrder = JSON.parse(localStorage.getItem('jarvis-widget-order') || '[]');
+  if (savedOrder.length) {
+    savedOrder.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) container.appendChild(el);
     });
   }
 
-  // 3. Ambient Audio Generator & Visualizer
-  const audioBtn = document.getElementById('ambient-toggle-btn');
-  const audioSelect = document.getElementById('ambient-type');
-  const audioStatus = document.getElementById('audio-status');
-  const canvas = document.getElementById('audio-visualizer');
+  widgets.forEach(widget => {
+    widget.addEventListener('dragstart', (e) => {
+      draggedItem = widget;
+      setTimeout(() => widget.classList.add('is-dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
 
-  if (audioBtn && canvas) {
-    let audioCtx = null;
-    let noiseNode = null;
-    let isPlaying = false;
-    let animId = null;
-    const ctx = canvas.getContext('2d');
+    widget.addEventListener('dragend', () => {
+      widget.classList.remove('is-dragging');
+      widgets.forEach(w => w.classList.remove('drag-over'));
+      draggedItem = null;
 
-    function createNoiseBuffer(type) {
-      const bufferSize = audioCtx.sampleRate * 2;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const output = buffer.getChannelData(0);
+      // Save order to LocalStorage
+      const currentOrder = Array.from(container.querySelectorAll('.hud-widget')).map(w => w.id);
+      localStorage.setItem('jarvis-widget-order', JSON.stringify(currentOrder));
+    });
 
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    widget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (widget !== draggedItem) {
+        widget.classList.add('drag-over');
+      }
+    });
 
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        if (type === 'pink') {
-          b0 = 0.99886 * b0 + white * 0.0555179;
-          b1 = 0.99332 * b1 + white * 0.0750759;
-          b2 = 0.96900 * b2 + white * 0.1538520;
-          b3 = 0.86650 * b3 + white * 0.3104856;
-          b4 = 0.55000 * b4 + white * 0.5329522;
-          b5 = -0.7616 * b5 - white * 0.0168980;
-          output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.04;
-          b6 = white * 0.115926;
-        } else if (type === 'brown') {
-          b0 = (b0 + (0.02 * white)) / 1.02;
-          output[i] = b0 * 0.15;
-        } else { // rain
-          output[i] = (white * 0.05) * (Math.random() > 0.98 ? 1.5 : 0.8);
+    widget.addEventListener('dragleave', () => {
+      widget.classList.remove('drag-over');
+    });
+
+    widget.addEventListener('drop', (e) => {
+      e.preventDefault();
+      widget.classList.remove('drag-over');
+      if (draggedItem && draggedItem !== widget) {
+        const allWidgets = Array.from(container.querySelectorAll('.hud-widget'));
+        const draggedIdx = allWidgets.indexOf(draggedItem);
+        const targetIdx = allWidgets.indexOf(widget);
+
+        if (draggedIdx < targetIdx) {
+          container.insertBefore(draggedItem, widget.nextSibling);
+        } else {
+          container.insertBefore(draggedItem, widget);
         }
       }
-      return buffer;
-    }
-
-    function drawVisualizer() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const bars = 20;
-      const barWidth = canvas.width / bars;
-
-      for (let i = 0; i < bars; i++) {
-        const height = isPlaying ? Math.random() * (canvas.height - 5) + 5 : 2;
-        ctx.fillStyle = isPlaying ? '#4fd8e6' : '#1c5e68';
-        ctx.fillRect(i * barWidth, canvas.height - height, barWidth - 2, height);
-      }
-
-      if (isPlaying) animId = requestAnimationFrame(drawVisualizer);
-    }
-
-    audioBtn.addEventListener('click', () => {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-      if (isPlaying) {
-        if (noiseNode) noiseNode.stop();
-        isPlaying = false;
-        audioBtn.textContent = 'PLAY';
-        audioBtn.className = 'hud-btn primary';
-        if (audioStatus) audioStatus.textContent = 'OFF';
-        cancelAnimationFrame(animId);
-        drawVisualizer();
-      } else {
-        const buffer = createNoiseBuffer(audioSelect.value);
-        noiseNode = audioCtx.createBufferSource();
-        noiseNode.buffer = buffer;
-        noiseNode.loop = true;
-        noiseNode.connect(audioCtx.destination);
-        noiseNode.start();
-
-        isPlaying = true;
-        audioBtn.textContent = 'STOP';
-        audioBtn.className = 'hud-btn secondary';
-        if (audioStatus) audioStatus.textContent = 'ACTIVE';
-        drawVisualizer();
-      }
     });
-
-    drawVisualizer();
-  }
+  });
 })();
