@@ -898,135 +898,58 @@ footer{
   font-size: 13px;
 }
 /* =========================================================
-   DASHBOARD GRID & SMOOTH HUD WIDGETS
+   DASHBOARD-ONLY DRAGGABLE WIDGETS
    ========================================================= */
-#panel-dashboard .dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
+
+/* Contain widgets strictly inside the active dashboard panel */
+#panel-dashboard .dashboard-widgets-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
   width: 100%;
-  max-width: 950px;
-  margin: 15px auto;
-  padding: 0 10px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 10px;
   box-sizing: border-box;
+  position: relative;
+  min-height: 220px;
 }
 
+/* Ensure widgets are hidden when switching away from #panel-dashboard */
+.panel:not(#panel-dashboard) .dashboard-widgets-area {
+  display: none !important;
+}
+
+/* Drag Handle and Movement Styling */
 .hud-widget {
-  background: var(--bg-card, rgba(10, 20, 30, 0.65));
-  border: 1px solid var(--accent-dim, #1c5e68);
+  background: rgba(6, 14, 22, 0.8);
+  border: 1px solid rgba(79, 216, 230, 0.25);
   border-radius: 8px;
-  padding: 12px 16px;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  padding: 14px 16px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  flex: 1 1 260px;
+  max-width: 310px;
+  user-select: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.hud-widget:hover {
-  border-color: var(--accent, #4fd8e6);
-  box-shadow: 0 0 12px rgba(79, 216, 230, 0.15);
+.drag-handle {
+  cursor: grab;
 }
 
-.widget-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 6px;
+.drag-handle:active {
+  cursor: grabbing;
 }
 
-.widget-title {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--accent, #4fd8e6);
-  text-transform: uppercase;
+.hud-widget.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  border-color: #4fd8e6;
+  box-shadow: 0 0 18px rgba(79, 216, 230, 0.4);
 }
 
-/* Pomodoro Specifics */
-.pomo-mode-badge {
-  font-size: 0.6rem;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: var(--accent-dim, #1c5e68);
-  color: #fff;
-  letter-spacing: 1px;
-}
-
-.pomo-display {
-  text-align: center;
-  font-family: monospace;
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--fg-main, #e0f7fa);
-  margin: 8px 0;
-  text-shadow: 0 0 8px var(--accent-dim, #1c5e68);
-}
-
-.pomo-controls {
-  display: flex;
-  gap: 8px;
-}
-
-.pomo-controls button {
-  flex: 1;
-  padding: 6px 0;
-  font-size: 0.75rem;
-}
-
-/* Scratchpad Specifics */
-.notepad-status {
-  font-size: 0.6rem;
-  color: var(--accent-dim, #888);
-  letter-spacing: 1px;
-  transition: color 0.3s ease;
-}
-
-.notepad-status.unsaved {
-  color: var(--warn, #e6a04f);
-}
-
-#daily-notepad {
-  width: 100%;
-  height: 100px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--fg-main, #e0f7fa);
-  font-family: monospace;
-  font-size: 0.82rem;
-  padding: 8px;
-  border-radius: 4px;
-  box-sizing: border-box;
-  resize: vertical;
-  outline: none;
-}
-
-#daily-notepad:focus {
-  border-color: var(--accent, #4fd8e6);
-}
-
-/* Audio Ambient Specifics */
-.audio-controls {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.hud-select {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--accent-dim, #1c5e68);
-  color: var(--fg-main, #e0f7fa);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  outline: none;
-}
-
-#audio-visualizer {
-  width: 100%;
-  height: 35px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  display: block;
+.hud-widget.drag-over {
+  border-style: dashed;
+  border-color: #4fd8e6;
 }
