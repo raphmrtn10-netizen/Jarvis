@@ -289,33 +289,79 @@ header{
 #panel-dashboard{
   position:relative;
   display:flex;
+  flex-direction:column;
   align-items:center;
-  justify-content:center;
+  justify-content:flex-start;
   padding:32px 16px;
-  min-height:420px;
+  min-height:600px;
 }
 #panel-dashboard.active{ display:flex; }
 
+/* Movable Dashboard Grid Container */
+.dashboard-grid {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+  align-items: start;
+}
+
+/* Draggable Widget Base */
+.widget {
+  background: var(--surface), var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(8px);
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.widget:active {
+  cursor: grabbing;
+}
+
+.widget.dragging-widget {
+  opacity: 0.5;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent);
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+/* Dashboard HUD Core */
 .hud-core{
   position:relative;
-  width:min(58vw, 420px);
+  width:min(58vw, 360px);
   aspect-ratio:1/1;
   display:flex;
   align-items:center;
   justify-content:center;
   perspective:1100px;
-
-  /* Reactive color — swapped by JS toggling .listening/.thinking/.speaking
-     on this element. Everything below reads from this one variable. */
+  margin: 0 auto;
   --hud-c: var(--accent);
 }
 .hud-core.listening{ --hud-c: var(--danger); }
 .hud-core.thinking{ --hud-c: #a78bfa; }
 .hud-core.speaking{ --hud-c: #6fcf97; }
 
-/* ---- Layer 1: tilted "gyroscope" rings ----
-   Plain circles rotated in 3D space read as ellipses, which is what
-   sells the illusion of a slowly turning holographic sphere. */
 .hud-sphere{
   position:absolute; inset:0;
   transform-style:preserve-3d;
@@ -335,8 +381,6 @@ header{
 @keyframes orbit-b{ from{ transform:rotateX(70deg) rotateZ(60deg); } to{ transform:rotateX(70deg) rotateZ(420deg); } }
 @keyframes orbit-c{ from{ transform:rotateY(76deg) rotateZ(30deg); } to{ transform:rotateY(76deg) rotateZ(390deg); } }
 
-/* Small bright points riding along one of the tilted rings, like
-   satellites — pure CSS, no extra markup needed per point. */
 .orbit-point{
   position:absolute; top:-3px; left:50%;
   width:6px; height:6px; margin-left:-3px;
@@ -345,7 +389,6 @@ header{
   box-shadow:0 0 8px 2px var(--hud-c);
 }
 
-/* ---- Layer 2: structural ring + ticks + sweep (flat SVG, unrotated) ---- */
 .hud-core svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 .ring{ transform-origin:50% 50%; fill:none; }
 .ring-outer{ stroke:var(--line); stroke-width:1; }
@@ -368,10 +411,6 @@ header{
 @keyframes spin{ to{ transform:rotate(360deg); } }
 @keyframes spin-rev{ to{ transform:rotate(-360deg); } }
 
-/* ---- Layer 3: morphing glowing core ----
-   A blurred radial-gradient orb whose border-radius corners wobble
-   asymmetrically — a smooth, rounded "liquid sphere" morph rather
-   than a jagged star, for a more premium/professional read. */
 #core-blob{
   position:absolute; inset:31%;
   background:radial-gradient(circle at 34% 30%, #fff, var(--hud-c) 45%, transparent 78%);
@@ -388,7 +427,6 @@ header{
   75%{     border-radius:63% 37% 45% 55% / 55% 45% 55% 45%; }
 }
 
-/* ---- Reactive state behavior ---- */
 .hud-core.listening .ring-sweep{ animation-duration:1.2s; }
 .hud-core.listening #core-blob{ animation:core-pulse 0.6s ease-in-out infinite, core-morph 3s ease-in-out infinite; }
 .hud-core.thinking .ring-sweep{ animation-duration:0.85s; }
@@ -399,8 +437,6 @@ header{
 .hud-core.speaking #core-blob{ animation:core-pulse 0.9s ease-in-out infinite, core-morph 2.2s ease-in-out infinite; }
 @keyframes hue-cycle{ from{ filter:hue-rotate(0deg); } to{ filter:hue-rotate(360deg); } }
 
-/* Frosted glass plate behind STATUS/READY so it stays crisp and
-   readable against the busy, glowing animation underneath it. */
 .core-center{
   position:absolute;
   text-align:center;
@@ -424,40 +460,126 @@ header{
   transition:text-shadow 0.3s ease;
 }
 
-.readout{
-  position:absolute;
-  width:220px;
-  font-size:12px;
-  color:var(--text-lo);
-  letter-spacing:0.05em;
-  display:none;
+/* Electric Clock Widget */
+.electric-clock {
+  text-align: center;
+  padding: 10px 0;
 }
-@media (min-width: 900px){ .readout{ display:block; } }
-.readout.left{ left:clamp(16px,4vw,64px); top:50%; transform:translateY(-50%); }
-.readout.right{ right:clamp(16px,4vw,64px); top:50%; transform:translateY(-50%); }
-.readout .title{
-  font-family:var(--font-display);
-  font-size:11px;
-  letter-spacing:0.25em;
-  color:var(--accent);
-  margin-bottom:12px;
-  border-bottom:1px solid var(--line);
-  padding-bottom:6px;
+.electric-clock .digital-time {
+  font-family: var(--font-mono), monospace;
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent);
+  letter-spacing: 0.1em;
 }
-.readout .row{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed var(--line); }
+.electric-clock .ampm {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--text-lo);
+  margin-left: 6px;
+}
+.electric-clock .digital-date {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--text-lo);
+  margin-top: 6px;
+}
 
-.waveform{ display:flex; align-items:flex-end; gap:3px; height:36px; margin-top:12px; }
-.waveform span{ flex:1; background:var(--accent-dim); animation:wave 1.4s ease-in-out infinite; }
-.waveform span:nth-child(odd){ background:var(--accent); }
-@keyframes wave{ 0%,100%{ height:20%; } 50%{ height:90%; } }
-.waveform span:nth-child(1){ animation-delay:0.0s; }
-.waveform span:nth-child(2){ animation-delay:0.15s; }
-.waveform span:nth-child(3){ animation-delay:0.3s; }
-.waveform span:nth-child(4){ animation-delay:0.45s; }
-.waveform span:nth-child(5){ animation-delay:0.6s; }
-.waveform span:nth-child(6){ animation-delay:0.3s; }
-.waveform span:nth-child(7){ animation-delay:0.15s; }
-.waveform span:nth-child(8){ animation-delay:0.0s; }
+/* Pomodoro Timer Widget */
+.pomodoro-widget {
+  text-align: center;
+}
+.pomodoro-display {
+  font-family: var(--font-mono), monospace;
+  font-size: 36px;
+  color: var(--text-hi);
+  text-shadow: 0 0 8px var(--accent);
+  margin: 10px 0;
+}
+.widget-btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.widget-btn {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  background: var(--surface), rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  color: var(--text-hi);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.widget-btn:hover {
+  background: var(--accent);
+  color: var(--bg-0);
+  border-color: var(--accent);
+}
+
+/* Daily Scratchpad Widget */
+.scratchpad-widget textarea {
+  width: 100%;
+  height: 110px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-hi);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 10px;
+  resize: vertical;
+  outline: none;
+}
+.scratchpad-widget textarea:focus {
+  border-color: var(--accent);
+}
+
+/* Ambient Audio Player Widget */
+.ambient-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ambient-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sound-btn {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  background: var(--surface), rgba(255,255,255,0.02);
+  border: 1px solid var(--line);
+  color: var(--text-lo);
+  padding: 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+}
+.sound-btn.active {
+  background: var(--accent);
+  color: var(--bg-0);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.volume-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-lo);
+}
+.volume-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
 
 /* === Comms (chat) panel === */
 #panel-comms{ padding:24px clamp(16px,4vw,48px) 8px; }
@@ -566,8 +688,6 @@ header{
   background:var(--accent); color:var(--bg-0); border:none; padding:0 16px; border-radius:var(--radius); cursor:pointer;
 }
 
-/* Category tabs — mainly drive the single-column view on small screens,
-   also give a quick visual jump-to on wide screens */
 .task-tab-nav{ display:flex; gap:4px; margin-bottom:16px; flex-wrap:wrap; }
 .task-tab-btn{
   font-family:var(--font-display);
@@ -589,7 +709,6 @@ header{
   border-color:var(--accent);
 }
 
-/* Board grid — 3 columns side by side on desktop */
 .kanban{
   display:grid;
   grid-template-columns:repeat(3, 1fr);
@@ -628,8 +747,6 @@ header{
 }
 .kanban-list{ list-style:none; display:flex; flex-direction:column; gap:8px; flex:1; }
 
-/* Fixed per-category colors — these stay put regardless of the global
-   theme switcher, so the board is always readable at a glance. */
 .kanban-col[data-status="todo"]{ background:rgba(79,216,230,0.05); }
 .kanban-col[data-status="todo"] .kanban-head{ color:#4fd8e6; }
 .kanban-col[data-status="todo"] .kanban-card{ border-left:2px solid #4fd8e6; }
@@ -642,7 +759,6 @@ header{
 .kanban-col[data-status="done"] .kanban-head{ color:#6fcf97; }
 .kanban-col[data-status="done"] .kanban-card{ border-left:2px solid #6fcf97; }
 
-/* Drop-target highlight while dragging a card over a column */
 .kanban-col.drag-over{
   background:rgba(255,255,255,0.05);
   box-shadow:inset 0 0 0 1px var(--text-hi);
@@ -660,8 +776,6 @@ header{
   transition:opacity 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 .kanban-card:active{ cursor:grabbing; }
-/* The card currently being dragged — a clear glowing outline so it's
-   obvious what's being moved and where it'll land. */
 .kanban-card.dragging{
   opacity:0.45;
   outline:2px dashed var(--text-hi);
@@ -707,7 +821,6 @@ header{
 
 .task-summary{ margin-top:16px; font-size:11px; color:var(--text-lo); letter-spacing:0.05em; text-align:center; }
 
-/* Small screens: show one column at a time, switched via the tabs above */
 @media (max-width: 720px){
   .kanban{ grid-template-columns:1fr; }
   .kanban-col{ display:none; }
@@ -812,51 +925,7 @@ footer{
 }
 
 /* =========================================================
-   VIRTUAL FILE EXPLORER STYLES
-   ========================================================= */
-#file-explorer {
-  margin-top: 15px;
-  padding: 15px;
-}
-
-.file-tree {
-  margin-top: 10px;
-  font-family: var(--font-mono), monospace;
-}
-
-.file-tree .empty-msg {
-  color: var(--text-lo);
-  font-style: italic;
-  font-size: 12px;
-}
-
-.fs-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.fs-item {
-  padding: 4px 8px;
-  font-size: 13px;
-  color: var(--text-hi, #fff);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fs-item.folder {
-  color: var(--accent);
-  font-weight: bold;
-}
-
-.fs-item.file {
-  padding-left: 20px;
-  opacity: 0.85;
-}
-
-/* =========================================================
-   WORKPLACE TAB STYLES
+   VIRTUAL FILE EXPLORER & WORKPLACE STYLES
    ========================================================= */
 #panel-workplace{ padding:24px clamp(16px,4vw,48px) 40px; }
 
@@ -871,10 +940,32 @@ footer{
   border-radius: var(--radius);
   padding: 20px;
   min-height: 250px;
+  margin-top: 10px;
+  font-family: var(--font-mono), monospace;
+}
+
+.fs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.fs-item {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-hi, #fff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fs-item.folder {
+  color: var(--accent);
+  font-weight: bold;
 }
 
 .fs-item.file {
-  padding-left: 32px;
+  padding-left: 28px;
   color: var(--text-hi);
   opacity: 0.9;
 }
@@ -882,5 +973,47 @@ footer{
 .empty-msg {
   color: var(--text-lo);
   font-style: italic;
+  font-size: 13px;
+}
+
+/* Command Terminal Component in Workspace */
+.command-terminal {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.terminal-output {
+  height: 140px;
+  overflow-y: auto;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--text-hi);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.log-entry.user-cmd { color: var(--accent); }
+.log-entry.success { color: #6fcf97; }
+.log-entry.sys-msg { color: var(--text-lo); }
+
+.terminal-input-bar {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.terminal-input-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-hi);
+  font-family: var(--font-mono), monospace;
   font-size: 13px;
 }
