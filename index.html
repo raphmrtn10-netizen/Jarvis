@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -96,6 +97,68 @@
       <div class="row"><span>Temp</span><span id="weather-temp">--°</span></div>
       <div class="row"><span>Condition</span><span id="weather-cond">--</span></div>
     </aside>
+
+    <!-- Movable Widgets Suite -->
+    <div class="widget-layer">
+      <!-- Digital Clock Widget -->
+      <div class="widget clock-widget" id="clock-widget">
+        <div class="clock-display">
+          <span id="digital-clock-time">00:00:00</span>
+          <span id="clock-ampm">AM</span>
+        </div>
+        <div class="clock-date" id="digital-clock-date">LOADING DATE...</div>
+      </div>
+
+      <!-- Daily Scratchpad Widget -->
+      <div class="widget scratchpad-widget" id="scratchpad-widget">
+        <div class="widget-header">
+          <h3><i class="fas fa-sticky-note"></i> Daily Scratchpad</h3>
+        </div>
+        <div class="widget-body">
+          <textarea id="scratchpad-text" placeholder="Type quick notes here... (auto-saved)"></textarea>
+        </div>
+      </div>
+
+      <!-- Pomodoro Timer Widget -->
+      <div class="widget pomodoro-widget" id="pomodoro-widget">
+        <div class="widget-header">
+          <h3><i class="fas fa-stopwatch"></i> Pomodoro Timer</h3>
+        </div>
+        <div class="widget-body">
+          <div class="pomodoro-display" id="pomodoro-display">25:00</div>
+          <div class="pomodoro-controls">
+            <button id="pomo-start-btn" class="pomo-btn">Start</button>
+            <button id="pomo-pause-btn" class="pomo-btn">Pause</button>
+            <button id="pomo-reset-btn" class="pomo-btn">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ambient Sound Player Widget -->
+      <div class="widget ambient-widget" id="ambient-widget">
+        <div class="widget-header">
+          <h3><i class="fas fa-headphones"></i> Ambient Audio</h3>
+        </div>
+        <div class="widget-body">
+          <div class="sound-selector">
+            <button class="sound-btn" data-sound="rain">
+              <i class="fas fa-cloud-showers-heavy"></i> Rain
+            </button>
+            <button class="sound-btn" data-sound="nature">
+              <i class="fas fa-tree"></i> Nature
+            </button>
+            <button class="sound-btn" data-sound="whitenoise">
+              <i class="fas fa-wind"></i> White Noise
+            </button>
+          </div>
+          <div class="volume-control">
+            <i class="fas fa-volume-down"></i>
+            <input type="range" id="ambient-volume" min="0" max="1" step="0.05" value="0.5" />
+            <i class="fas fa-volume-up"></i>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ===================== Comms panel ===================== -->
