@@ -6,8 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initBootSequence();
   initTabNavigation();
   initClock();
+  initInteractiveBlob();
   initDashboardDragAndDrop();
   initPomodoroTimer();
+  initCommsFormAndSpeech();
   initWorkplaceTerminal();
   initThemeAndModal();
 });
@@ -86,7 +88,76 @@ function initClock() {
   setInterval(update, 1000);
 }
 
-// 4. Safe Widget Drag and Drop
+// 4. Interactive 3D Canvas Blob Rendering
+function initInteractiveBlob() {
+  const canvas = document.getElementById('blob-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  let time = 0;
+  let mouseX = 110;
+  let mouseY = 110;
+
+  const hudCore = document.getElementById('hud-core');
+  if (hudCore) {
+    hudCore.addEventListener('mousemove', (e) => {
+      const rect = hudCore.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+  }
+
+  function drawBlob() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    time += 0.04;
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const baseRadius = 55;
+    const points = 12;
+
+    ctx.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      
+      // Calculate mouse displacement distortion
+      const dx = mouseX - centerX;
+      const dy = mouseY - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const pull = Math.max(0, (80 - dist) / 80) * 12;
+
+      const offset = Math.sin(time + i * 1.5) * 6 + Math.cos(time * 0.8 + i) * 4 + pull;
+      const r = baseRadius + offset;
+      
+      const x = centerX + Math.cos(angle) * r;
+      const y = centerY + Math.sin(angle) * r;
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+
+    // Futuristic Cyan Gradient & Glow
+    const gradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 70);
+    gradient.addColorStop(0, '#ffffff');
+    gradient.addColorStop(0.4, '#4fd8e6');
+    gradient.addColorStop(1, 'rgba(28, 94, 104, 0.2)');
+
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = '#4fd8e6';
+    ctx.shadowBlur = 20;
+    ctx.fill();
+
+    requestAnimationFrame(drawBlob);
+  }
+
+  drawBlob();
+}
+
+// 5. Safe Dashboard Widget Drag-and-Drop
 function initDashboardDragAndDrop() {
   const container = document.getElementById('dashboard-grid');
   if (!container) return;
@@ -122,7 +193,7 @@ function initDashboardDragAndDrop() {
   });
 }
 
-// 5. Pomodoro Focus Timer
+// 6. Pomodoro Focus Timer
 function initPomodoroTimer() {
   let timer = null;
   let timeLeft = 25 * 60;
@@ -168,7 +239,78 @@ function initPomodoroTimer() {
   }
 }
 
-// 6. Workplace Terminal Execution Logic
+// 7. Comms Form (Prevent Page Refresh) & Speech Mic Handler
+function initCommsFormAndSpeech() {
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input');
+  const log = document.getElementById('chat-log');
+  const micBtn = document.getElementById('btn-mic');
+  const micText = document.getElementById('mic-text');
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault(); // Prevents page reload
+      const msg = input.value.trim();
+      if (!msg) return;
+
+      appendChatMessage('user', msg);
+      input.value = '';
+
+      // Simulated Response
+      setTimeout(() => {
+        appendChatMessage('jarvis', `Acknowledged operative. Executing processing routine for: "${msg}"`);
+      }, 600);
+    });
+  }
+
+  // Web Speech API Voice Recognition
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition && micBtn) {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    micBtn.addEventListener('click', () => {
+      try {
+        recognition.start();
+        micBtn.classList.add('recording');
+        if (micText) micText.textContent = 'LISTENING...';
+      } catch (err) {
+        recognition.stop();
+      }
+    });
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      if (input) input.value = transcript;
+    };
+
+    recognition.onend = () => {
+      micBtn.classList.remove('recording');
+      if (micText) micText.textContent = 'MIC';
+    };
+  } else if (micBtn) {
+    micBtn.addEventListener('click', () => {
+      alert('Speech Recognition is not supported on this browser context.');
+    });
+  }
+}
+
+function appendChatMessage(sender, text) {
+  const log = document.getElementById('chat-log');
+  if (!log) return;
+
+  const emptyMsg = log.querySelector('.chat-empty');
+  if (emptyMsg) emptyMsg.remove();
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `msg ${sender}`;
+  msgDiv.innerHTML = `<div class="bubble">${text}</div>`;
+  log.appendChild(msgDiv);
+  log.scrollTop = log.scrollHeight;
+}
+
+// 8. Workplace Terminal Execution Logic
 function initWorkplaceTerminal() {
   const input = document.getElementById('terminal-input');
   if (!input) return;
@@ -247,7 +389,7 @@ function executeWorkspaceCommand(cmdStr) {
   }
 }
 
-// 7. Theme & Modal Controls
+// 9. Theme & Modal Controls with Local Storage Persistence
 function initThemeAndModal() {
   const swatches = document.querySelectorAll('.swatch');
   swatches.forEach(swatch => {
@@ -262,7 +404,28 @@ function initThemeAndModal() {
   const modal = document.getElementById('settings-modal');
   const openBtn = document.getElementById('btn-settings-toggle');
   const closeBtn = document.getElementById('btn-modal-close');
+  const saveBtn = document.getElementById('btn-modal-save');
+  const apiKeyInput = document.getElementById('api-key-input');
 
-  if (openBtn && modal) openBtn.addEventListener('click', () => modal.classList.add('open'));
-  if (closeBtn && modal) closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+  // Load existing key
+  const savedKey = localStorage.getItem('jarvis_api_key');
+  if (savedKey && apiKeyInput) apiKeyInput.value = savedKey;
+
+  if (openBtn && modal) {
+    openBtn.addEventListener('click', () => {
+      modal.classList.add('open');
+      if (apiKeyInput) apiKeyInput.focus();
+    });
+  }
+
+  if (closeBtn && modal) {
+    closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+  }
+
+  if (saveBtn && apiKeyInput && modal) {
+    saveBtn.addEventListener('click', () => {
+      localStorage.setItem('jarvis_api_key', apiKeyInput.value.trim());
+      modal.classList.remove('open');
+    });
+  }
 }
