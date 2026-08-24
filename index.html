@@ -1,353 +1,308 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="cyan">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S. — Interface</title>
-<meta name="description" content="A HUD-style personal assistant interface.">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J.A.R.V.I.S. System Interface</title>
+  
+  <!-- Futuristic Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ===================== Boot sequence overlay ===================== -->
-<div id="boot-overlay">
-  <div class="boot-log" id="boot-log" aria-live="polite"></div>
-  <div class="boot-bar"><div class="boot-bar-fill" id="boot-bar-fill"></div></div>
-  <button class="boot-skip" id="boot-skip">SKIP</button>
-</div>
+  <!-- Ambient Glow Background -->
+  <div id="ambient-glow"></div>
+  <canvas id="particle-field"></canvas>
 
-<!-- Ambient background glow (soft color washes behind the grid) -->
-<div id="ambient-glow"></div>
-
-<!-- Ambient particle background -->
-<canvas id="particle-field"></canvas>
-
-<div class="shell" id="shell">
-
-  <header>
-    <div class="brand">J<span>·</span>A<span>·</span>R<span>·</span>V<span>·</span>I<span>·</span>S</div>
-    <div class="header-controls">
-      <div class="status-line"><span class="dot"></span> SYSTEM ONLINE</div>
-      <button class="icon-btn" id="mute-toggle" title="Toggle sound" aria-pressed="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19 8a5 5 0 0 1 0 8"/></svg>
-      </button>
-      <button class="icon-btn" id="settings-btn" title="API settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
-      </button>
+  <!-- Boot System Overlay -->
+  <div id="boot-overlay">
+    <div class="boot-log" id="boot-log"></div>
+    <div class="boot-bar">
+      <div class="boot-bar-fill" id="boot-bar-fill"></div>
     </div>
-  </header>
+    <button class="boot-skip" id="boot-skip-btn">BYPASS SEQUENCE</button>
+  </div>
 
-  <p class="welcome">Welcome back, sir
-    <span class="sub" id="welcome-sub">All systems nominal</span>
-  </p>
-
-  <nav class="tab-nav" role="tablist" aria-label="Sections">
-    <button class="tab-btn" role="tab" aria-selected="true" data-tab="dashboard">DASHBOARD</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="comms">COMMS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="tasks">TASKS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="systems">SYSTEMS</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="workplace">WORKPLACE</button>
-  </nav>
-
-  <!-- ===================== Dashboard panel ===================== -->
-  <section class="panel active" id="panel-dashboard" role="tabpanel">
-    <aside class="readout left">
-      <div class="title">Local Time</div>
-      <div class="row"><span>Clock</span><span id="clock-time">--:--:--</span></div>
-      <div class="row"><span>Date</span><span id="clock-date">----</span></div>
-      <div class="row"><span>Zone</span><span id="clock-zone">--</span></div>
-      <div class="waveform" aria-hidden="true">
-        <span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
-    </aside>
-
-    <div class="hud-core" id="hud-core">
-      <div class="hud-sphere" aria-hidden="true">
-        <div class="orbit orbit-a"><span class="orbit-point"></span></div>
-        <div class="orbit orbit-b"><span class="orbit-point"></span></div>
-        <div class="orbit orbit-c"><span class="orbit-point"></span></div>
-      </div>
-      <svg viewBox="0 0 200 200">
-        <circle class="ring ring-outer" cx="100" cy="100" r="94"/>
-        <g class="ring-tick">
-          <line x1="100" y1="4" x2="100" y2="14"/>
-          <line x1="100" y1="186" x2="100" y2="196"/>
-          <line x1="4" y1="100" x2="14" y2="100"/>
-          <line x1="186" y1="100" x2="196" y2="100"/>
-        </g>
-        <circle class="ring ring-sweep" cx="100" cy="100" r="94" stroke-dasharray="42 550"/>
-        <circle class="ring ring-sweep-slow" cx="100" cy="100" r="80"/>
-      </svg>
-      <div id="core-blob" aria-hidden="true"></div>
-      <div class="core-center">
-        <div class="label">STATUS</div>
-        <div class="value" id="hud-status">READY</div>
-      </div>
-    </div>
-
-    <aside class="readout right">
-      <div class="title">Weather</div>
-      <div class="row"><span>Location</span><span id="weather-loc">Locating…</span></div>
-      <div class="row"><span>Temp</span><span id="weather-temp">--°</span></div>
-      <div class="row"><span>Condition</span><span id="weather-cond">--</span></div>
-    </aside>
-
-    <!-- Movable Widgets Suite -->
-    <div class="widget-layer">
-      <!-- Digital Clock Widget -->
-      <div class="widget clock-widget" id="clock-widget" draggable="true">
-        <div class="clock-display">
-          <span id="digital-clock-time">00:00:00</span>
-          <span id="clock-ampm">AM</span>
-        </div>
-        <div class="clock-date" id="digital-clock-date">LOADING DATE...</div>
-      </div>
-
-      <!-- Command Workspace Widget -->
-      <div class="widget workspace-widget" id="workspace-panel" draggable="true">
-        <div class="widget-header">
-          <h3><i class="fa-solid fa-terminal"></i> Command Workspace</h3>
-        </div>
-        <div class="widget-body">
-          <div id="output-log" class="log-container">System Ready.</div>
-          <div class="input-group">
-            <input type="text" id="command-input" placeholder="Type a command (e.g., 'create file notes.txt')...">
-            <button id="mic-btn" title="Voice Command"><i class="fa-solid fa-microphone"></i></button>
-            <button id="send-btn" title="Send Command"><i class="fa-solid fa-paper-plane"></i></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Daily Scratchpad Widget -->
-      <div class="widget scratchpad-widget" id="scratchpad-widget" draggable="true">
-        <div class="widget-header">
-          <h3><i class="fas fa-sticky-note"></i> Daily Scratchpad</h3>
-        </div>
-        <div class="widget-body">
-          <textarea id="scratchpad-text" placeholder="Type quick notes here... (auto-saved)"></textarea>
-        </div>
-      </div>
-
-      <!-- Pomodoro Timer Widget -->
-      <div class="widget pomodoro-widget" id="pomodoro-widget" draggable="true">
-        <div class="widget-header">
-          <h3><i class="fas fa-stopwatch"></i> Pomodoro Timer</h3>
-        </div>
-        <div class="widget-body">
-          <div class="pomodoro-display" id="pomodoro-display">25:00</div>
-          <div class="pomodoro-controls">
-            <button id="pomo-start-btn" class="pomo-btn">Start</button>
-            <button id="pomo-pause-btn" class="pomo-btn">Pause</button>
-            <button id="pomo-reset-btn" class="pomo-btn">Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Ambient Sound Player Widget -->
-      <div class="widget ambient-widget" id="ambient-widget" draggable="true">
-        <div class="widget-header">
-          <h3><i class="fas fa-headphones"></i> Ambient Audio</h3>
-        </div>
-        <div class="widget-body">
-          <div class="sound-selector">
-            <button class="sound-btn" data-sound="rain">
-              <i class="fas fa-cloud-showers-heavy"></i> Rain
-            </button>
-            <button class="sound-btn" data-sound="nature">
-              <i class="fas fa-tree"></i> Nature
-            </button>
-            <button class="sound-btn" data-sound="whitenoise">
-              <i class="fas fa-wind"></i> White Noise
-            </button>
-          </div>
-          <div class="volume-control">
-            <i class="fas fa-volume-down"></i>
-            <input type="range" id="ambient-volume" min="0" max="1" step="0.05" value="0.5" />
-            <i class="fas fa-volume-up"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== Comms panel ===================== -->
-  <section class="panel" id="panel-comms" role="tabpanel">
-    <div class="chat-window">
-      <div class="chat-log" id="chat-log">
-        <p class="chat-empty" id="chat-empty">No transmissions yet. Say hello, sir.</p>
-      </div>
-    </div>
-    <div class="command-bar">
-      <form id="command-form">
-        <span class="prompt-glyph">&gt;</span>
-        <input id="comms-input" type="text" placeholder="Type a command…" autocomplete="off">
-        <button type="button" class="mic-btn" id="comms-mic-btn" title="Voice input">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
-        </button>
-        <button type="submit">Send</button>
-      </form>
-    </div>
-    <p class="chat-hint" id="chat-hint">No API key set — <button type="button" id="chat-hint-btn">add your Google AI Studio API key</button> to enable live responses.</p>
-    <p class="chat-hint" id="handsfree-hint" style="display:none;">Hands-free mode is on — JARVIS will listen again automatically after each reply. Click the mic to stop.</p>
-  </section>
-
-  <!-- ===================== Tasks panel ===================== -->
-  <section class="panel" id="panel-tasks" role="tabpanel">
-    <div class="tasks-wrap">
-      <h2>Task Board</h2>
-
-      <form class="task-form" id="task-form">
-        <input id="task-input" type="text" placeholder="Add a new task…" autocomplete="off">
-        <select id="task-priority" aria-label="Priority">
-          <option value="low">Low</option>
-          <option value="medium" selected>Medium</option>
-          <option value="high">High</option>
-        </select>
-        <input id="task-due" type="date" aria-label="Due date">
-        <button type="submit">Add</button>
-      </form>
-
-      <nav class="task-tab-nav" role="tablist" aria-label="Task category">
-        <button class="task-tab-btn" role="tab" aria-selected="true" data-status="todo">TO DO</button>
-        <button class="task-tab-btn" role="tab" aria-selected="false" data-status="developing">DEVELOPING</button>
-        <button class="task-tab-btn" role="tab" aria-selected="false" data-status="done">COMPLETED</button>
-      </nav>
-
-      <div class="kanban" id="kanban" data-active="todo">
-
-        <div class="kanban-col" data-status="todo">
-          <div class="kanban-head">
-            <span>To Do</span>
-            <span class="kanban-count" id="count-todo">0</span>
-          </div>
-          <ul class="kanban-list" id="list-todo"></ul>
-          <p class="kanban-empty" id="empty-todo">Nothing queued.</p>
-        </div>
-
-        <div class="kanban-col" data-status="developing">
-          <div class="kanban-head">
-            <span>Developing</span>
-            <span class="kanban-count" id="count-developing">0</span>
-          </div>
-          <ul class="kanban-list" id="list-developing"></ul>
-          <p class="kanban-empty" id="empty-developing">Nothing in progress.</p>
-        </div>
-
-        <div class="kanban-col" data-status="done">
-          <div class="kanban-head">
-            <span>Completed</span>
-            <span class="kanban-count" id="count-done">0</span>
-          </div>
-          <ul class="kanban-list" id="list-done"></ul>
-          <p class="kanban-empty" id="empty-done">Nothing completed yet.</p>
-        </div>
-
-      </div>
-
-      <p class="task-summary" id="task-summary"></p>
-    </div>
-  </section>
-
-  <!-- ===================== Systems panel ===================== -->
-  <section class="panel" id="panel-systems" role="tabpanel">
-    <div class="systems-grid">
-
-      <div class="systems-card">
-        <h3>Power</h3>
-        <div class="row"><span>Battery</span><span id="sys-battery">Checking…</span></div>
-        <div class="row"><span>Charging</span><span id="sys-charging">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Connection</h3>
-        <div class="row"><span>Status</span><span id="sys-online">--</span></div>
-        <div class="row"><span>Type</span><span id="sys-conn-type">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Display</h3>
-        <div class="row"><span>Resolution</span><span id="sys-resolution">--</span></div>
-        <div class="row"><span>Platform</span><span id="sys-platform">--</span></div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Interface Theme</h3>
-        <div class="theme-swatches">
-          <button class="swatch blue active" data-theme="blue" title="Blue" aria-label="Blue theme"></button>
-          <button class="swatch amber" data-theme="amber" title="Amber" aria-label="Amber theme"></button>
-          <button class="swatch red" data-theme="red" title="Red" aria-label="Red theme"></button>
-        </div>
-      </div>
-
-      <div class="systems-card">
-        <h3>Audio</h3>
-        <div class="mute-row">
-          <span style="font-size:13px;color:var(--text-lo);">Interface sound</span>
-          <button class="toggle" id="sound-toggle" aria-pressed="false"></button>
-        </div>
-        <div class="mute-row" style="margin-top:12px;">
-          <span style="font-size:13px;color:var(--text-lo);">Voice replies</span>
-          <button class="toggle" id="voice-toggle" aria-pressed="false"></button>
-        </div>
-        <div class="mute-row" style="margin-top:12px;">
-          <span style="font-size:13px;color:var(--text-lo);">Hands-free mode</span>
-          <button class="toggle" id="handsfree-toggle" aria-pressed="false"></button>
-        </div>
-      </div>
-
-      <div class="systems-card">
-        <h3>API Key</h3>
-        <div class="row"><span>Status</span><span id="sys-api-status">Not set</span></div>
-        <button class="icon-btn" id="sys-settings-btn" style="width:auto; padding:0 12px; height:30px; margin-top:10px; font-family:var(--font-display); font-size:10px; letter-spacing:0.1em;">MANAGE</button>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ===================== Workplace panel ===================== -->
-  <section class="panel" id="panel-workplace" role="tabpanel">
-    <div class="tasks-wrap">
-      <h2>Workplace Directory</h2>
-      <p style="font-size:13px; color:var(--text-lo); margin-bottom: 20px;">Virtual File System & Project Storage</p>
+  <!-- Main Application Shell -->
+  <div class="shell" id="app-shell">
+    
+    <!-- Top Bar Navigation -->
+    <header>
+      <div class="brand">J.A.R.V.I.S. <span>// v3.6</span></div>
       
-      <div id="file-tree" class="file-tree">
-        <p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS to create one, sir.</p>
+      <div class="header-controls">
+        <div class="status-line">
+          <span class="dot"></span>
+          <span id="system-status-text">ONLINE</span>
+        </div>
+        
+        <button class="icon-btn" id="btn-theme-toggle" title="Toggle Theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-settings-toggle" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
       </div>
+    </header>
+
+    <!-- Welcome Greeting Header -->
+    <div class="welcome">
+      Welcome Back, Operative
+      <span class="sub">All core subsystems operating within nominal parameters.</span>
     </div>
-  </section>
 
-  <footer>
-    <span>BUILD 0.2.0</span>
-    <span id="footer-status">ALL SYSTEMS NOMINAL</span>
-  </footer>
+    <!-- Navigation Bar -->
+    <nav class="tab-nav">
+      <button class="tab-btn" data-panel="panel-dashboard" aria-selected="true">DASHBOARD</button>
+      <button class="tab-btn" data-panel="panel-comms" aria-selected="false">COMMS</button>
+      <button class="tab-btn" data-panel="panel-tasks" aria-selected="false">TASKS</button>
+      <button class="tab-btn" data-panel="panel-systems" aria-selected="false">SYSTEMS</button>
+      <button class="tab-btn" data-panel="panel-workplace" aria-selected="false">WORKPLACE</button>
+    </nav>
 
-</div>
+    <!-- Main Content Panels -->
+    <main>
+      
+      <!-- Panel 1: Dashboard -->
+      <section id="panel-dashboard" class="panel active">
+        
+        <!-- Central Arc Reactor HUD Core -->
+        <div class="hud-core" id="hud-core">
+          <div class="hud-sphere orbit orbit-a"></div>
+          <div class="hud-sphere orbit orbit-b">
+            <span class="orbit-point p1"></span>
+            <span class="orbit-point p2"></span>
+            <span class="orbit-point p3"></span>
+          </div>
+          <div class="hud-sphere orbit orbit-c"></div>
 
-<!-- ===================== Settings modal ===================== -->
-<div class="modal-overlay" id="settings-modal">
-  <div class="modal">
-    <h2>Google Gemini API Key</h2>
-    <p>
-      Paste your Google AI Studio API key to enable live Gemini-powered responses in COMMS.
-      It's saved in this browser's local storage so you won't need to re-enter it next visit — it is never sent anywhere except directly to Google's API.
-      Get a free key at
-      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
-      Because this is a static site, the key is stored in plain text in this browser — don't use this on a shared or public computer.
-    </p>
-    <input type="password" id="api-key-input" placeholder="AIza…" autocomplete="off">
-    <div class="modal-actions">
-      <button class="secondary" id="settings-cancel">Close</button>
-      <button class="primary" id="settings-save">Save Key</button>
+          <svg viewBox="0 0 200 200">
+            <circle class="ring ring-outer" cx="100" cy="100" r="92" />
+            <circle class="ring ring-tick" cx="100" cy="100" r="82" stroke-dasharray="2 6" />
+            <circle class="ring ring-sweep" cx="100" cy="100" r="72" stroke-dasharray="110 220" />
+            <circle class="ring ring-sweep-slow" cx="100" cy="100" r="62" />
+          </svg>
+
+          <div id="core-blob"></div>
+
+          <div class="core-center">
+            <div class="label">STATUS</div>
+            <div class="value" id="hud-status-text">READY</div>
+          </div>
+        </div>
+
+        <!-- Dynamic Movable Dashboard Grid -->
+        <div class="dashboard-grid" id="dashboard-grid">
+          
+          <!-- Widget: System Telemetry / Clock -->
+          <div class="widget" draggable="true" id="widget-clock">
+            <div class="widget-header">
+              <span>System Telemetry</span>
+              <span class="drag-handle">⋮⋮</span>
+            </div>
+            <div class="electric-clock">
+              <div class="digital-time"><span id="clock-time">18:07:21</span></div>
+              <div class="digital-date" id="clock-date">24 AOÛT 2026</div>
+              <div class="clock-zone" id="clock-zone">REGION: EUROPE / PARIS</div>
+            </div>
+          </div>
+
+          <!-- Widget: Atmospheric Data / Weather -->
+          <div class="widget" draggable="true" id="widget-weather">
+            <div class="widget-header">
+              <span>Atmospheric Data</span>
+              <span class="drag-handle">⋮⋮</span>
+            </div>
+            <div class="weather-display">
+              <div class="weather-temp">22°C</div>
+              <div class="weather-desc">PARTLY CLOUDY</div>
+              <div class="weather-meta">
+                <span>HUMIDITY: 45%</span>
+                <span>WIND: 12 KM/H</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget: Tactical Scratchpad -->
+          <div class="widget scratchpad-widget" draggable="true" id="widget-scratchpad">
+            <div class="widget-header">
+              <span>Tactical Scratchpad</span>
+              <span class="drag-handle">⋮⋮</span>
+            </div>
+            <textarea id="daily-scratchpad" placeholder="Record temporary notes..."></textarea>
+          </div>
+
+          <!-- Widget: Focus Cycle Pomodoro Timer -->
+          <div class="widget pomodoro-widget" draggable="true" id="widget-pomodoro">
+            <div class="widget-header">
+              <span>Focus Cycle</span>
+              <span class="drag-handle">⋮⋮</span>
+            </div>
+            <div class="pomodoro-display" id="pomo-display">25:00</div>
+            <div class="widget-btn-group">
+              <button class="widget-btn" id="pomo-start">START</button>
+              <button class="widget-btn" id="pomo-reset">RESET</button>
+            </div>
+          </div>
+
+          <!-- Widget: Ambient Audio Synthesizer -->
+          <div class="widget ambient-widget" draggable="true" id="widget-ambient">
+            <div class="widget-header">
+              <span>Audio Synthesis</span>
+              <span class="drag-handle">⋮⋮</span>
+            </div>
+            <div class="ambient-controls">
+              <button class="sound-btn" data-sound="hum">HUM</button>
+              <button class="sound-btn" data-sound="rain">RAIN</button>
+              <button class="sound-btn" data-sound="waves">WAVES</button>
+            </div>
+            <div class="volume-slider">
+              <label for="ambient-volume">VOL</label>
+              <input type="range" id="ambient-volume" min="0" max="1" step="0.05" value="0.5">
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Panel 2: Comms Terminal -->
+      <section id="panel-comms" class="panel">
+        <div class="chat-window">
+          <div class="chat-log" id="chat-log">
+            <div class="chat-empty">JARVIS active. Awaiting voice or textual input...</div>
+          </div>
+        </div>
+
+        <div class="command-bar">
+          <form id="chat-form">
+            <span class="prompt-glyph">&gt;</span>
+            <input type="text" id="chat-input" placeholder="Type a message or issue a command..." autocomplete="off">
+            <button type="button" class="mic-btn" id="btn-mic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              MIC
+            </button>
+            <button type="submit">TRANSMIT</button>
+          </form>
+        </div>
+        <div class="chat-hint">
+          Tip: Say "Jarvis" or click MIC for voice commands.
+        </div>
+      </section>
+
+      <!-- Panel 3: Task Management Kanban -->
+      <section id="panel-tasks" class="panel">
+        <div class="tasks-wrap">
+          <h2>Task Board</h2>
+          <form class="task-form" id="task-form">
+            <input type="text" id="task-input-text" placeholder="Add new task detail..." required>
+            <select id="task-input-priority">
+              <option value="low">Low Priority</option>
+              <option value="medium" selected>Medium Priority</option>
+              <option value="high">High Priority</option>
+            </select>
+            <input type="date" id="task-input-due">
+            <button type="submit">ADD TASK</button>
+          </form>
+
+          <div class="kanban" id="kanban">
+            <div class="kanban-col" data-status="todo">
+              <div class="kanban-head">
+                <span>To Do</span>
+                <span class="kanban-count" id="count-todo">0</span>
+              </div>
+              <ul class="kanban-list" id="list-todo"></ul>
+            </div>
+
+            <div class="kanban-col" data-status="developing">
+              <div class="kanban-head">
+                <span>In Development</span>
+                <span class="kanban-count" id="count-developing">0</span>
+              </div>
+              <ul class="kanban-list" id="list-developing"></ul>
+            </div>
+
+            <div class="kanban-col" data-status="done">
+              <div class="kanban-head">
+                <span>Completed</span>
+                <span class="kanban-count" id="count-done">0</span>
+              </div>
+              <ul class="kanban-list" id="list-done"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 4: System Telemetry -->
+      <section id="panel-systems" class="panel">
+        <div class="systems-grid">
+          <div class="systems-card">
+            <h3>Visual Matrix Theme</h3>
+            <div class="theme-swatches">
+              <button class="swatch blue active" data-theme="cyan" title="Cyan Matrix"></button>
+              <button class="swatch amber" data-theme="amber" title="Amber Alert"></button>
+              <button class="swatch red" data-theme="red" title="Red Alert"></button>
+            </div>
+          </div>
+          <div class="systems-card">
+            <h3>System Status</h3>
+            <div class="row"><span>Core Engine</span><span>v3.6-flash</span></div>
+            <div class="row"><span>Voice Profile</span><span>Masculine Fluid</span></div>
+            <div class="row"><span>Local Persistence</span><span>Active</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Panel 5: Workplace File Explorer & Terminal -->
+      <section id="panel-workplace" class="panel">
+        <div class="tasks-wrap">
+          <h2>Virtual Workspace File Tree</h2>
+          <div class="file-tree" id="file-tree">
+            <ul class="fs-list" id="fs-root-list">
+              <li class="fs-item folder">📁 /root</li>
+              <li class="fs-item file">📄 app.js</li>
+              <li class="fs-item file">📄 index.html</li>
+              <li class="fs-item file">📄 style.css</li>
+            </ul>
+          </div>
+
+          <div class="command-terminal">
+            <div class="terminal-output" id="terminal-output">
+              <div class="log-entry sys-msg">Workspace Terminal v1.0. Type 'help' for commands.</div>
+            </div>
+            <div class="terminal-input-bar">
+              <span class="prompt-glyph">&gt;</span>
+              <input type="text" id="terminal-input" placeholder="Execute terminal command (e.g. mkdir project, touch file.txt)..." autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <div>J.A.R.V.I.S. INTERFACE ENGINE</div>
+      <div>SECURE ENCRYPTION ACTIVE</div>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+      <h2>System Configuration</h2>
+      <p>Enter custom API configuration overrides below:</p>
+      <input type="text" id="api-key-input" placeholder="Enter Gemini API Key Override...">
+      <div class="modal-actions">
+        <button class="secondary" id="btn-modal-close">CANCEL</button>
+        <button class="primary" id="btn-modal-save">SAVE CONFIG</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
