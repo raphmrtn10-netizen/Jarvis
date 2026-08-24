@@ -810,6 +810,7 @@ footer{
   flex-wrap:wrap;
   gap:6px;
 }
+
 /* =========================================================
    VIRTUAL FILE EXPLORER STYLES
    ========================================================= */
@@ -820,7 +821,7 @@ footer{
 
 .file-tree {
   margin-top: 10px;
-  font-family: monospace;
+  font-family: var(--font-mono), monospace;
 }
 
 .file-tree .empty-msg {
@@ -831,7 +832,7 @@ footer{
 
 .fs-list {
   list-style: none;
-  padding-left: 0;
+  padding: 0;
   margin: 0;
 }
 
@@ -839,9 +840,13 @@ footer{
   padding: 4px 8px;
   font-size: 13px;
   color: var(--text-hi, #fff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .fs-item.folder {
+  color: var(--accent);
   font-weight: bold;
 }
 
@@ -849,9 +854,12 @@ footer{
   padding-left: 20px;
   opacity: 0.85;
 }
+
 /* =========================================================
    WORKPLACE TAB STYLES
    ========================================================= */
+#panel-workplace{ padding:24px clamp(16px,4vw,48px) 40px; }
+
 #panel-workplace .tasks-wrap {
   max-width: 900px;
   margin: 0 auto;
@@ -863,27 +871,6 @@ footer{
   border-radius: var(--radius);
   padding: 20px;
   min-height: 250px;
-}
-
-.fs-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.fs-item {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-family: monospace;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.fs-item.folder {
-  color: var(--accent);
-  font-weight: bold;
 }
 
 .fs-item.file {
