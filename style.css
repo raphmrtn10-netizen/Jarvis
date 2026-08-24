@@ -110,7 +110,6 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .icon-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
 .icon-btn svg { width: 16px; height: 16px; }
 
-/* Welcome Text & Nav */
 .welcome { text-align: center; font-family: var(--font-display); font-size: clamp(15px, 2.4vw, 24px); letter-spacing: 0.28em; color: var(--accent-soft); padding: 24px 16px 0; }
 .welcome .sub { display: block; font-family: var(--font-body); font-size: 11px; letter-spacing: 0.2em; color: var(--text-lo); margin-top: 6px; }
 
@@ -155,10 +154,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes spin-rev { to { transform: rotate(-360deg); } }
 
-/* 3D Interactive Canvas Blob */
-#blob-canvas {
-  position: absolute; width: 220px; height: 220px; z-index: 1; pointer-events: none;
-}
+#blob-canvas { position: absolute; width: 220px; height: 220px; z-index: 1; pointer-events: none; }
 
 .core-center {
   position: absolute; text-align: center; font-family: var(--font-display);
@@ -169,7 +165,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .core-center .label { font-size: 10px; letter-spacing: 0.35em; color: var(--text-lo); margin-bottom: 2px; }
 .core-center .value { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 0.08em; text-shadow: 0 0 18px var(--hud-c); }
 
-/* Dashboard Grid & Movable Widgets */
+/* Dashboard Grid & Drag and Drop Widgets */
 .dashboard-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;
   width: 100%; max-width: 1100px; margin-top: 32px;
@@ -177,18 +173,19 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 
 .widget {
   background: rgba(7, 13, 18, 0.65); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  padding: 16px; backdrop-filter: blur(12px); box-shadow: var(--shadow-panel); transition: transform 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  padding: 16px; backdrop-filter: blur(12px); box-shadow: var(--shadow-panel);
+  cursor: grab; transition: transform 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
-.widget.dragging-widget { opacity: 0.4; border-color: var(--accent); box-shadow: 0 0 15px rgba(79, 216, 230, 0.3); }
+.widget:active { cursor: grabbing; }
+.widget.dragging-widget { opacity: 0.3; border-color: var(--accent); box-shadow: 0 0 15px rgba(79, 216, 230, 0.3); }
 
 .widget-header {
   display: flex; justify-content: space-between; align-items: center;
   font-family: var(--font-display); font-size: 11px; letter-spacing: 0.2em; color: var(--accent);
-  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; pointer-events: none;
 }
-.drag-handle { cursor: grab; color: var(--text-lo); font-size: 14px; }
+.drag-handle { color: var(--text-lo); font-size: 14px; }
 
-/* Styled Telemetry & Weather Widgets */
 .electric-clock { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
 .electric-clock .digital-time { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--accent); text-shadow: 0 0 10px rgba(79, 216, 230, 0.5); }
 .electric-clock .digital-date, .electric-clock .clock-zone { font-family: var(--font-display); font-size: 11px; letter-spacing: 0.15em; color: var(--text-lo); }
@@ -230,6 +227,11 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .kanban-col { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px; min-height: 200px; }
 .kanban-head { display: flex; justify-content: space-between; font-family: var(--font-display); font-size: 11px; letter-spacing: 0.15em; color: var(--accent); margin-bottom: 12px; }
 .kanban-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.kanban-item { background: rgba(0,0,0,0.3); border: 1px solid var(--line); padding: 10px; border-radius: var(--radius); font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.kanban-item .badge { font-size: 10px; font-family: var(--font-mono); padding: 2px 6px; border-radius: 4px; }
+.kanban-item .badge.high { background: rgba(230, 95, 95, 0.2); color: var(--danger); }
+.kanban-item .badge.medium { background: rgba(230, 160, 79, 0.2); color: var(--warn); }
+.kanban-item .badge.low { background: rgba(79, 216, 230, 0.2); color: var(--accent); }
 
 /* Restored Original Systems Panel Styling */
 .systems-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; width: 100%; max-width: 880px; }
@@ -260,7 +262,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .terminal-input-bar { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .terminal-input-bar input { flex: 1; background: none; border: none; outline: none; color: var(--text-hi); font-family: var(--font-mono); font-size: 13px; }
 
-/* Modal Input & Text Selection Fix */
+/* Modal Input & Text Selection */
 .modal-overlay { position: fixed; inset: 0; z-index: 999; background: rgba(2, 6, 9, 0.85); display: none; align-items: center; justify-content: center; }
 .modal-overlay.open { display: flex; }
 .modal { width: min(90vw, 420px); background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
