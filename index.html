@@ -14,11 +14,11 @@
 </head>
 <body>
 
-  <!-- Ambient Glow Background -->
+  <!-- Ambient Background & Particle FX -->
   <div id="ambient-glow"></div>
   <canvas id="particle-field"></canvas>
 
-  <!-- Boot System Overlay -->
+  <!-- Boot Overlay -->
   <div id="boot-overlay">
     <div class="boot-log" id="boot-log"></div>
     <div class="boot-bar">
@@ -30,7 +30,7 @@
   <!-- Main Application Shell -->
   <div class="shell" id="app-shell">
     
-    <!-- Top Bar Navigation -->
+    <!-- Header -->
     <header>
       <div class="brand">J.A.R.V.I.S. <span>// v3.6</span></div>
       
@@ -87,7 +87,8 @@
             <circle class="ring ring-sweep-slow" cx="100" cy="100" r="62" />
           </svg>
 
-          <div id="core-blob"></div>
+          <!-- Interactive 3D Canvas Blob -->
+          <canvas id="blob-canvas" width="220" height="220"></canvas>
 
           <div class="core-center">
             <div class="label">STATUS</div>
@@ -149,23 +150,6 @@
             </div>
           </div>
 
-          <!-- Widget: Ambient Audio Synthesizer -->
-          <div class="widget ambient-widget" draggable="true" id="widget-ambient">
-            <div class="widget-header">
-              <span>Audio Synthesis</span>
-              <span class="drag-handle">⋮⋮</span>
-            </div>
-            <div class="ambient-controls">
-              <button class="sound-btn" data-sound="hum">HUM</button>
-              <button class="sound-btn" data-sound="rain">RAIN</button>
-              <button class="sound-btn" data-sound="waves">WAVES</button>
-            </div>
-            <div class="volume-slider">
-              <label for="ambient-volume">VOL</label>
-              <input type="range" id="ambient-volume" min="0" max="1" step="0.05" value="0.5">
-            </div>
-          </div>
-
         </div>
       </section>
 
@@ -183,13 +167,13 @@
             <input type="text" id="chat-input" placeholder="Type a message or issue a command..." autocomplete="off">
             <button type="button" class="mic-btn" id="btn-mic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              MIC
+              <span id="mic-text">MIC</span>
             </button>
             <button type="submit">TRANSMIT</button>
           </form>
         </div>
         <div class="chat-hint">
-          Tip: Say "Jarvis" or click MIC for voice commands.
+          Tip: Say "Jarvis" or click MIC for voice input.
         </div>
       </section>
 
@@ -236,22 +220,38 @@
         </div>
       </section>
 
-      <!-- Panel 4: System Telemetry -->
+      <!-- Panel 4: Restored Original Systems Panel -->
       <section id="panel-systems" class="panel">
         <div class="systems-grid">
           <div class="systems-card">
             <h3>Visual Matrix Theme</h3>
+            <p class="card-sub">Select primary system palette</p>
             <div class="theme-swatches">
               <button class="swatch blue active" data-theme="cyan" title="Cyan Matrix"></button>
               <button class="swatch amber" data-theme="amber" title="Amber Alert"></button>
               <button class="swatch red" data-theme="red" title="Red Alert"></button>
             </div>
           </div>
+
           <div class="systems-card">
-            <h3>System Status</h3>
-            <div class="row"><span>Core Engine</span><span>v3.6-flash</span></div>
+            <h3>Audio Feedback</h3>
+            <p class="card-sub">Voice speech synthesizer parameters</p>
+            <div class="setting-row">
+              <label for="sys-voice-speed">SPEECH RATE</label>
+              <input type="range" id="sys-voice-speed" min="0.5" max="1.5" step="0.1" value="1.0">
+            </div>
+            <div class="setting-row">
+              <label for="sys-voice-pitch">PITCH FREQUENCY</label>
+              <input type="range" id="sys-voice-pitch" min="0.5" max="1.5" step="0.1" value="0.9">
+            </div>
+          </div>
+
+          <div class="systems-card">
+            <h3>Core Telemetry</h3>
+            <div class="row"><span>Model Target</span><span>gemini-3.6-flash</span></div>
             <div class="row"><span>Voice Profile</span><span>Masculine Fluid</span></div>
             <div class="row"><span>Local Persistence</span><span>Active</span></div>
+            <div class="row"><span>Latency</span><span>14ms</span></div>
           </div>
         </div>
       </section>
@@ -290,12 +290,12 @@
     </footer>
   </div>
 
-  <!-- Settings Modal -->
+  <!-- Settings Modal (Fixed Text Selection / API Key Entry) -->
   <div class="modal-overlay" id="settings-modal">
     <div class="modal">
       <h2>System Configuration</h2>
-      <p>Enter custom API configuration overrides below:</p>
-      <input type="text" id="api-key-input" placeholder="Enter Gemini API Key Override...">
+      <p>Enter custom Gemini API key override below:</p>
+      <input type="text" id="api-key-input" placeholder="AIzaSy..." autocomplete="off">
       <div class="modal-actions">
         <button class="secondary" id="btn-modal-close">CANCEL</button>
         <button class="primary" id="btn-modal-save">SAVE CONFIG</button>
