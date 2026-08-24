@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>J.A.R.V.I.S. System Interface</title>
   
-  <!-- Futuristic Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -14,7 +13,6 @@
 </head>
 <body>
 
-  <!-- Ambient Background & Particle FX -->
   <div id="ambient-glow"></div>
   <canvas id="particle-field"></canvas>
 
@@ -30,7 +28,6 @@
   <!-- Main Application Shell -->
   <div class="shell" id="app-shell">
     
-    <!-- Header -->
     <header>
       <div class="brand">J.A.R.V.I.S. <span>// v3.6</span></div>
       
@@ -49,13 +46,11 @@
       </div>
     </header>
 
-    <!-- Welcome Greeting Header -->
     <div class="welcome">
       Welcome Back, Operative
       <span class="sub">All core subsystems operating within nominal parameters.</span>
     </div>
 
-    <!-- Navigation Bar -->
     <nav class="tab-nav">
       <button class="tab-btn" data-panel="panel-dashboard" aria-selected="true">DASHBOARD</button>
       <button class="tab-btn" data-panel="panel-comms" aria-selected="false">COMMS</button>
@@ -64,13 +59,10 @@
       <button class="tab-btn" data-panel="panel-workplace" aria-selected="false">WORKPLACE</button>
     </nav>
 
-    <!-- Main Content Panels -->
     <main>
       
       <!-- Panel 1: Dashboard -->
       <section id="panel-dashboard" class="panel active">
-        
-        <!-- Central Arc Reactor HUD Core -->
         <div class="hud-core" id="hud-core">
           <div class="hud-sphere orbit orbit-a"></div>
           <div class="hud-sphere orbit orbit-b">
@@ -87,7 +79,6 @@
             <circle class="ring ring-sweep-slow" cx="100" cy="100" r="62" />
           </svg>
 
-          <!-- Interactive 3D Canvas Blob -->
           <canvas id="blob-canvas" width="220" height="220"></canvas>
 
           <div class="core-center">
@@ -96,10 +87,8 @@
           </div>
         </div>
 
-        <!-- Dynamic Movable Dashboard Grid -->
         <div class="dashboard-grid" id="dashboard-grid">
           
-          <!-- Widget: System Telemetry / Clock -->
           <div class="widget" draggable="true" id="widget-clock">
             <div class="widget-header">
               <span>System Telemetry</span>
@@ -112,7 +101,6 @@
             </div>
           </div>
 
-          <!-- Widget: Atmospheric Data / Weather -->
           <div class="widget" draggable="true" id="widget-weather">
             <div class="widget-header">
               <span>Atmospheric Data</span>
@@ -128,7 +116,6 @@
             </div>
           </div>
 
-          <!-- Widget: Tactical Scratchpad -->
           <div class="widget scratchpad-widget" draggable="true" id="widget-scratchpad">
             <div class="widget-header">
               <span>Tactical Scratchpad</span>
@@ -137,7 +124,6 @@
             <textarea id="daily-scratchpad" placeholder="Record temporary notes..."></textarea>
           </div>
 
-          <!-- Widget: Focus Cycle Pomodoro Timer -->
           <div class="widget pomodoro-widget" draggable="true" id="widget-pomodoro">
             <div class="widget-header">
               <span>Focus Cycle</span>
@@ -164,7 +150,7 @@
         <div class="command-bar">
           <form id="chat-form">
             <span class="prompt-glyph">&gt;</span>
-            <input type="text" id="chat-input" placeholder="Type a message or issue a command..." autocomplete="off">
+            <input type="text" id="chat-input" placeholder="Type command e.g. 'creat task publish priority:medium'..." autocomplete="off">
             <button type="button" class="mic-btn" id="btn-mic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               <span id="mic-text">MIC</span>
@@ -173,11 +159,11 @@
           </form>
         </div>
         <div class="chat-hint">
-          Tip: Say "Jarvis" or click MIC for voice input.
+          Supports natural commands: "create task [title]", "create folder [name]", "create file [filename]"
         </div>
       </section>
 
-      <!-- Panel 3: Task Management Kanban -->
+      <!-- Panel 3: Tasks Kanban -->
       <section id="panel-tasks" class="panel">
         <div class="tasks-wrap">
           <h2>Task Board</h2>
@@ -234,22 +220,23 @@
           </div>
 
           <div class="systems-card">
-            <h3>Audio Feedback</h3>
-            <p class="card-sub">Voice speech synthesizer parameters</p>
+            <h3>Audio Feedback & Speech Synthesis</h3>
+            <p class="card-sub">Voice profile configuration</p>
             <div class="setting-row">
               <label for="sys-voice-speed">SPEECH RATE</label>
               <input type="range" id="sys-voice-speed" min="0.5" max="1.5" step="0.1" value="1.0">
             </div>
             <div class="setting-row">
               <label for="sys-voice-pitch">PITCH FREQUENCY</label>
-              <input type="range" id="sys-voice-pitch" min="0.5" max="1.5" step="0.1" value="0.9">
+              <input type="range" id="sys-voice-pitch" min="0.5" max="1.5" step="0.1" value="0.8">
             </div>
+            <button class="widget-btn" id="btn-test-voice">TEST VOICE OUTPUT</button>
           </div>
 
           <div class="systems-card">
             <h3>Core Telemetry</h3>
             <div class="row"><span>Model Target</span><span>gemini-3.6-flash</span></div>
-            <div class="row"><span>Voice Profile</span><span>Masculine Fluid</span></div>
+            <div class="row"><span>Voice Profile</span><span id="voice-name-label">Masculine Fluid</span></div>
             <div class="row"><span>Local Persistence</span><span>Active</span></div>
             <div class="row"><span>Latency</span><span>14ms</span></div>
           </div>
@@ -275,7 +262,7 @@
             </div>
             <div class="terminal-input-bar">
               <span class="prompt-glyph">&gt;</span>
-              <input type="text" id="terminal-input" placeholder="Execute terminal command (e.g. mkdir project, touch file.txt)..." autocomplete="off">
+              <input type="text" id="terminal-input" placeholder="Execute command (e.g. mkdir project, touch main.js)..." autocomplete="off">
             </div>
           </div>
         </div>
@@ -283,14 +270,13 @@
 
     </main>
 
-    <!-- Footer -->
     <footer>
       <div>J.A.R.V.I.S. INTERFACE ENGINE</div>
       <div>SECURE ENCRYPTION ACTIVE</div>
     </footer>
   </div>
 
-  <!-- Settings Modal (Fixed Text Selection / API Key Entry) -->
+  <!-- Settings Modal -->
   <div class="modal-overlay" id="settings-modal">
     <div class="modal">
       <h2>System Configuration</h2>
