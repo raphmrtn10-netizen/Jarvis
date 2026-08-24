@@ -2,6 +2,8 @@
 // J.A.R.V.I.S. SYSTEM ENGINE — APPLICATION SCRIPT
 // =========================================================
 
+let selectedVoice = null;
+
 document.addEventListener('DOMContentLoaded', () => {
   initBootSequence();
   initTabNavigation();
@@ -9,9 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initInteractiveBlob();
   initDashboardDragAndDrop();
   initPomodoroTimer();
+  initTaskBoard();
   initCommsFormAndSpeech();
   initWorkplaceTerminal();
   initThemeAndModal();
+  initSpeechSynthesis();
 });
 
 // 1. Boot sequence
@@ -46,6 +50,7 @@ function initBootSequence() {
   const completeBoot = () => {
     if (overlay) overlay.classList.add('hidden');
     if (shell) shell.classList.add('revealed');
+    speakResponse("Jarvis online. Systems operational.");
   };
 
   setTimeout(completeBoot, 2400);
@@ -71,7 +76,7 @@ function initTabNavigation() {
   });
 }
 
-// 3. Digital Clock Telemetry
+// 3. Digital Clock
 function initClock() {
   const timeEl = document.getElementById('clock-time');
   const dateEl = document.getElementById('clock-date');
@@ -88,7 +93,7 @@ function initClock() {
   setInterval(update, 1000);
 }
 
-// 4. Interactive 3D Canvas Blob Rendering
+// 4. Interactive 3D Canvas Blob
 function initInteractiveBlob() {
   const canvas = document.getElementById('blob-canvas');
   if (!canvas) return;
@@ -119,8 +124,6 @@ function initInteractiveBlob() {
     ctx.beginPath();
     for (let i = 0; i <= points; i++) {
       const angle = (i / points) * Math.PI * 2;
-      
-      // Calculate mouse displacement distortion
       const dx = mouseX - centerX;
       const dy = mouseY - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -128,19 +131,14 @@ function initInteractiveBlob() {
 
       const offset = Math.sin(time + i * 1.5) * 6 + Math.cos(time * 0.8 + i) * 4 + pull;
       const r = baseRadius + offset;
-      
       const x = centerX + Math.cos(angle) * r;
       const y = centerY + Math.sin(angle) * r;
 
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
     ctx.closePath();
 
-    // Futuristic Cyan Gradient & Glow
     const gradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 70);
     gradient.addColorStop(0, '#ffffff');
     gradient.addColorStop(0.4, '#4fd8e6');
@@ -157,43 +155,48 @@ function initInteractiveBlob() {
   drawBlob();
 }
 
-// 5. Safe Dashboard Widget Drag-and-Drop
+// 5. Improved Dashboard Grid Drag & Drop
 function initDashboardDragAndDrop() {
-  const container = document.getElementById('dashboard-grid');
-  if (!container) return;
+  const grid = document.getElementById('dashboard-grid');
+  if (!grid) return;
 
-  let draggedWidget = null;
+  let draggedItem = null;
 
-  container.addEventListener('dragstart', (e) => {
-    const widget = e.target.closest('.widget');
-    if (!widget) return;
-    draggedWidget = widget;
-    widget.classList.add('dragging-widget');
-    e.dataTransfer.effectAllowed = 'move';
-  });
+  grid.querySelectorAll('.widget').forEach(widget => {
+    widget.addEventListener('dragstart', (e) => {
+      draggedItem = widget;
+      widget.classList.add('dragging-widget');
+      e.dataTransfer.effectAllowed = 'move';
+    });
 
-  container.addEventListener('dragend', (e) => {
-    const widget = e.target.closest('.widget');
-    if (widget) widget.classList.remove('dragging-widget');
-    draggedWidget = null;
-  });
+    widget.addEventListener('dragend', () => {
+      widget.classList.remove('dragging-widget');
+      draggedItem = null;
+    });
 
-  container.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    widget.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
 
-    if (!draggedWidget) return;
+    widget.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (draggedItem && draggedItem !== widget) {
+        const children = Array.from(grid.children);
+        const draggedIndex = children.indexOf(draggedItem);
+        const targetIndex = children.indexOf(widget);
 
-    const targetWidget = e.target.closest('.widget');
-    if (targetWidget && targetWidget !== draggedWidget) {
-      const rect = targetWidget.getBoundingClientRect();
-      const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-      container.insertBefore(draggedWidget, next ? targetWidget.nextSibling : targetWidget);
-    }
+        if (draggedIndex < targetIndex) {
+          grid.insertBefore(draggedItem, widget.nextSibling);
+        } else {
+          grid.insertBefore(draggedItem, widget);
+        }
+      }
+    });
   });
 }
 
-// 6. Pomodoro Focus Timer
+// 6. Focus Cycle Pomodoro Timer
 function initPomodoroTimer() {
   let timer = null;
   let timeLeft = 25 * 60;
@@ -223,6 +226,7 @@ function initPomodoroTimer() {
             clearInterval(timer);
             timer = null;
             startBtn.textContent = 'START';
+            speakResponse("Focus cycle complete.");
           }
         }, 1000);
       }
@@ -239,31 +243,58 @@ function initPomodoroTimer() {
   }
 }
 
-// 7. Comms Form (Prevent Page Refresh) & Speech Mic Handler
+// 7. Task Management Engine
+function initTaskBoard() {
+  const form = document.getElementById('task-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('task-input-text');
+      const priority = document.getElementById('task-input-priority').value;
+      if (input && input.value.trim()) {
+        addNewTask(input.value.trim(), priority);
+        input.value = '';
+      }
+    });
+  }
+}
+
+function addNewTask(title, priority = 'medium') {
+  const list = document.getElementById('list-todo');
+  if (!list) return;
+
+  const item = document.createElement('li');
+  item.className = 'kanban-item';
+  item.innerHTML = `
+    <span>${title}</span>
+    <span class="badge ${priority}">${priority.toUpperCase()}</span>
+  `;
+  list.appendChild(item);
+
+  const countEl = document.getElementById('count-todo');
+  if (countEl) countEl.textContent = list.children.length;
+}
+
+// 8. Comms Form, Natural Command Parser & Speech Recognition
 function initCommsFormAndSpeech() {
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-input');
-  const log = document.getElementById('chat-log');
   const micBtn = document.getElementById('btn-mic');
   const micText = document.getElementById('mic-text');
 
   if (form) {
     form.addEventListener('submit', (e) => {
-      e.preventDefault(); // Prevents page reload
+      e.preventDefault();
       const msg = input.value.trim();
       if (!msg) return;
 
       appendChatMessage('user', msg);
       input.value = '';
 
-      // Simulated Response
-      setTimeout(() => {
-        appendChatMessage('jarvis', `Acknowledged operative. Executing processing routine for: "${msg}"`);
-      }, 600);
+      processCommsCommand(msg);
     });
   }
 
-  // Web Speech API Voice Recognition
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && micBtn) {
     const recognition = new SpeechRecognition();
@@ -289,11 +320,56 @@ function initCommsFormAndSpeech() {
       micBtn.classList.remove('recording');
       if (micText) micText.textContent = 'MIC';
     };
-  } else if (micBtn) {
-    micBtn.addEventListener('click', () => {
-      alert('Speech Recognition is not supported on this browser context.');
-    });
   }
+}
+
+// Process Comms Commands dynamically
+function processCommsCommand(rawInput) {
+  const text = rawInput.toLowerCase();
+
+  // Task Creation Command Pattern
+  if (text.includes('task') && (text.includes('creat') || text.includes('create') || text.includes('add'))) {
+    let taskTitle = rawInput.replace(/(creat|create|add)\s+task\s+/i, '');
+    let priority = 'medium';
+
+    if (text.includes('priority:high') || text.includes('high priority')) priority = 'high';
+    if (text.includes('priority:low') || text.includes('low priority')) priority = 'low';
+
+    // Strip parameters for title
+    taskTitle = taskTitle.replace(/priority:\w+/gi, '').replace(/deadline:[\d\/]+/gi, '').trim();
+    if (!taskTitle) taskTitle = 'New Directive Task';
+
+    addNewTask(taskTitle, priority);
+    const reply = `Task "${taskTitle}" successfully created and added to the Task Board.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // Folder Creation Command Pattern
+  if (text.includes('folder') && (text.includes('creat') || text.includes('create') || text.includes('mkdir'))) {
+    const folderName = rawInput.replace(/(creat|create|mkdir)\s+folder\s+/i, '').trim() || 'New_Folder';
+    executeWorkspaceCommand(`mkdir ${folderName}`);
+    const reply = `Directory /${folderName} created in Workplace files.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // File Creation Command Pattern
+  if (text.includes('file') && (text.includes('creat') || text.includes('create') || text.includes('touch'))) {
+    const fileName = rawInput.replace(/(creat|create|touch)\s+file\s+/i, '').trim() || 'script.js';
+    executeWorkspaceCommand(`touch ${fileName}`);
+    const reply = `File ${fileName} created in Workplace files.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // Default Fallback Command Processing
+  const reply = `Acknowledged operative. Processing routine executed for: "${rawInput}"`;
+  appendChatMessage('jarvis', reply);
+  speakResponse(reply);
 }
 
 function appendChatMessage(sender, text) {
@@ -310,7 +386,7 @@ function appendChatMessage(sender, text) {
   log.scrollTop = log.scrollHeight;
 }
 
-// 8. Workplace Terminal Execution Logic
+// 9. Workplace Terminal Execution
 function initWorkplaceTerminal() {
   const input = document.getElementById('terminal-input');
   if (!input) return;
@@ -346,30 +422,22 @@ function executeWorkspaceCommand(cmdStr) {
 
   switch (command) {
     case 'mkdir':
-      if (!args) {
-        appendTerminalLog('Error: Specify directory name.', 'sys-msg');
-      } else {
-        if (treeList) {
-          const li = document.createElement('li');
-          li.className = 'fs-item folder';
-          li.textContent = `📁 /${args}`;
-          treeList.appendChild(li);
-        }
+      if (treeList && args) {
+        const li = document.createElement('li');
+        li.className = 'fs-item folder';
+        li.textContent = `📁 /${args}`;
+        treeList.appendChild(li);
         appendTerminalLog(`Created directory: /${args}`, 'success');
       }
       break;
 
     case 'touch':
     case 'create':
-      if (!args) {
-        appendTerminalLog('Error: Specify file name.', 'sys-msg');
-      } else {
-        if (treeList) {
-          const li = document.createElement('li');
-          li.className = 'fs-item file';
-          li.textContent = `📄 ${args}`;
-          treeList.appendChild(li);
-        }
+      if (treeList && args) {
+        const li = document.createElement('li');
+        li.className = 'fs-item file';
+        li.textContent = `📄 ${args}`;
+        treeList.appendChild(li);
         appendTerminalLog(`Created file: ${args}`, 'success');
       }
       break;
@@ -384,12 +452,59 @@ function executeWorkspaceCommand(cmdStr) {
       break;
 
     default:
-      appendTerminalLog(`Command not recognized: '${command}'. Type 'help' for options.`, 'sys-msg');
+      appendTerminalLog(`Command not recognized: '${command}'.`, 'sys-msg');
       break;
   }
 }
 
-// 9. Theme & Modal Controls with Local Storage Persistence
+// 10. Masculine Voice Synthesis
+function initSpeechSynthesis() {
+  if (!('speechSynthesis' in window)) return;
+
+  function loadVoices() {
+    const voices = window.speechSynthesis.getVoices();
+    // Search for masculine voice candidates
+    selectedVoice = voices.find(v => 
+      v.name.includes('David') || 
+      v.name.includes('Mark') || 
+      v.name.includes('George') || 
+      v.name.includes('Google US English') ||
+      v.name.toLowerCase().includes('male')
+    ) || voices[0];
+
+    const label = document.getElementById('voice-name-label');
+    if (label && selectedVoice) label.textContent = selectedVoice.name;
+  }
+
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+
+  const testBtn = document.getElementById('btn-test-voice');
+  if (testBtn) {
+    testBtn.addEventListener('click', () => {
+      speakResponse("Voice synthesis check online. Masculine profile active.");
+    });
+  }
+}
+
+function speakResponse(text) {
+  if (!('speechSynthesis' in window)) return;
+
+  window.speechSynthesis.cancel(); // Stop prior audio playback
+  const utterance = new SpeechSynthesisUtterance(text);
+
+  const pitchInput = document.getElementById('sys-voice-pitch');
+  const speedInput = document.getElementById('sys-voice-speed');
+
+  utterance.pitch = pitchInput ? parseFloat(pitchInput.value) : 0.8;
+  utterance.rate = speedInput ? parseFloat(speedInput.value) : 1.0;
+
+  if (selectedVoice) utterance.voice = selectedVoice;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// 11. Settings & Modal Handler
 function initThemeAndModal() {
   const swatches = document.querySelectorAll('.swatch');
   swatches.forEach(swatch => {
@@ -407,15 +522,11 @@ function initThemeAndModal() {
   const saveBtn = document.getElementById('btn-modal-save');
   const apiKeyInput = document.getElementById('api-key-input');
 
-  // Load existing key
   const savedKey = localStorage.getItem('jarvis_api_key');
   if (savedKey && apiKeyInput) apiKeyInput.value = savedKey;
 
   if (openBtn && modal) {
-    openBtn.addEventListener('click', () => {
-      modal.classList.add('open');
-      if (apiKeyInput) apiKeyInput.focus();
-    });
+    openBtn.addEventListener('click', () => modal.classList.add('open'));
   }
 
   if (closeBtn && modal) {
