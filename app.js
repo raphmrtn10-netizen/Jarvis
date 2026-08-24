@@ -3,28 +3,137 @@
 // =========================================================
 
 let selectedVoice = null;
+let draggedTaskId = null;
+window.jarvisHudState = 'idle';
 
 document.addEventListener('DOMContentLoaded', () => {
+  initThemeAndModal();
   initBootSequence();
   initTabNavigation();
+  initCircuitBoard();
   initClock();
+  initWeather();
   initInteractiveBlob();
-  initDashboardDragAndDrop();
+  initDraggableWidgets();
+  initScratchpad();
   initPomodoroTimer();
   initTaskBoard();
   initCommsFormAndSpeech();
   initWorkplaceTerminal();
-  initThemeAndModal();
   initSpeechSynthesis();
+  initAmbientSound();
 });
 
-// 1. Boot sequence
+// ---------------------------------------------------------
+// HUD reactive state — shared by comms, mic, and the blob canvas
+// ---------------------------------------------------------
+function setHudState(state) {
+  const hudCore = document.getElementById('hud-core');
+  const statusText = document.getElementById('hud-status-text');
+  if (hudCore) {
+    hudCore.classList.remove('listening', 'thinking', 'speaking');
+    if (state) hudCore.classList.add(state);
+  }
+  window.jarvisHudState = state || 'idle';
+  if (statusText) {
+    statusText.textContent = state === 'listening' ? 'LISTENING'
+      : state === 'thinking' ? 'THINKING'
+      : state === 'speaking' ? 'RESPONDING'
+      : 'READY';
+  }
+}
+
+// ---------------------------------------------------------
+// 1. Theme + Settings modal (API key)
+// ---------------------------------------------------------
+const THEME_KEY = 'jarvis-theme';
+const THEME_ORDER = ['blue', 'amber', 'red'];
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.classList.toggle('active', s.getAttribute('data-theme') === theme);
+  });
+}
+
+function initThemeAndModal() {
+  const savedTheme = localStorage.getItem(THEME_KEY) || 'blue';
+  applyTheme(savedTheme);
+
+  document.querySelectorAll('.swatch').forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      const theme = swatch.getAttribute('data-theme');
+      applyTheme(theme);
+      try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* storage unavailable */ }
+    });
+  });
+
+  // Header sun icon cycles through themes as a quick shortcut
+  const cycleBtn = document.getElementById('btn-theme-toggle');
+  if (cycleBtn) {
+    cycleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'blue';
+      const next = THEME_ORDER[(THEME_ORDER.indexOf(current) + 1) % THEME_ORDER.length];
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* storage unavailable */ }
+    });
+  }
+
+  const modal = document.getElementById('settings-modal');
+  const openBtn = document.getElementById('btn-settings-toggle');
+  const chatHintBtn = document.getElementById('chat-hint-btn');
+  const closeBtn = document.getElementById('btn-modal-close');
+  const saveBtn = document.getElementById('btn-modal-save');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const chatHint = document.getElementById('chat-hint');
+  const sysApiStatus = document.getElementById('sys-api-status');
+
+  function refreshApiStatus() {
+    const key = localStorage.getItem('jarvis_api_key') || '';
+    if (chatHint) chatHint.style.display = key ? 'none' : 'block';
+    if (sysApiStatus) sysApiStatus.textContent = key ? 'Key saved in this browser' : 'Not set';
+  }
+
+  function openModal() {
+    if (!modal) return;
+    modal.classList.add('open');
+    if (apiKeyInput) {
+      apiKeyInput.value = localStorage.getItem('jarvis_api_key') || '';
+      apiKeyInput.focus();
+    }
+  }
+  function closeModal() { if (modal) modal.classList.remove('open'); }
+
+  if (openBtn) openBtn.addEventListener('click', openModal);
+  if (chatHintBtn) chatHintBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const val = apiKeyInput ? apiKeyInput.value.trim() : '';
+      try {
+        if (val) localStorage.setItem('jarvis_api_key', val);
+        else localStorage.removeItem('jarvis_api_key');
+      } catch (e) { /* storage unavailable */ }
+      refreshApiStatus();
+      closeModal();
+    });
+  }
+
+  refreshApiStatus();
+}
+
+// ---------------------------------------------------------
+// 2. Boot sequence
+// ---------------------------------------------------------
 function initBootSequence() {
   const overlay = document.getElementById('boot-overlay');
   const bar = document.getElementById('boot-bar-fill');
   const log = document.getElementById('boot-log');
   const shell = document.getElementById('app-shell');
   const skipBtn = document.getElementById('boot-skip-btn');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const logs = [
     'INITIALIZING CORE MEMORY...',
@@ -33,12 +142,24 @@ function initBootSequence() {
     'ALL SYSTEMS OPERATIONAL.'
   ];
 
+  function completeBoot() {
+    if (overlay) overlay.classList.add('hidden');
+    if (shell) shell.classList.add('revealed');
+    speakResponse('Jarvis online. Systems operational.');
+    setTimeout(() => { if (overlay) overlay.remove(); }, 700);
+  }
+
+  if (reducedMotion) {
+    completeBoot();
+    return;
+  }
+
   let currentLog = 0;
   const logInterval = setInterval(() => {
     if (currentLog < logs.length) {
       const line = document.createElement('div');
       line.textContent = `> ${logs[currentLog]}`;
-      log.appendChild(line);
+      if (log) log.appendChild(line);
       currentLog++;
     } else {
       clearInterval(logInterval);
@@ -47,17 +168,13 @@ function initBootSequence() {
 
   setTimeout(() => { if (bar) bar.style.width = '100%'; }, 100);
 
-  const completeBoot = () => {
-    if (overlay) overlay.classList.add('hidden');
-    if (shell) shell.classList.add('revealed');
-    speakResponse("Jarvis online. Systems operational.");
-  };
-
-  setTimeout(completeBoot, 2400);
-  if (skipBtn) skipBtn.addEventListener('click', completeBoot);
+  const bootTimer = setTimeout(completeBoot, 2400);
+  if (skipBtn) skipBtn.addEventListener('click', () => { clearTimeout(bootTimer); clearInterval(logInterval); completeBoot(); });
 }
 
-// 2. Tab Navigation
+// ---------------------------------------------------------
+// 3. Tab navigation
+// ---------------------------------------------------------
 function initTabNavigation() {
   const btns = document.querySelectorAll('.tab-btn');
   const panels = document.querySelectorAll('.panel');
@@ -65,10 +182,8 @@ function initTabNavigation() {
   btns.forEach(btn => {
     btn.addEventListener('click', () => {
       const targetId = btn.getAttribute('data-panel');
-
       btns.forEach(b => b.setAttribute('aria-selected', 'false'));
       panels.forEach(p => p.classList.remove('active'));
-
       btn.setAttribute('aria-selected', 'true');
       const targetPanel = document.getElementById(targetId);
       if (targetPanel) targetPanel.classList.add('active');
@@ -76,50 +191,261 @@ function initTabNavigation() {
   });
 }
 
-// 3. Digital Clock
+// ---------------------------------------------------------
+// 4. Circuit board background — PCB-style traces with
+//    traveling signal pulses, theme-color aware
+// ---------------------------------------------------------
+function initCircuitBoard() {
+  const canvas = document.getElementById('particle-field');
+  if (!canvas) return;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion) { canvas.remove(); return; }
+
+  const ctx = canvas.getContext('2d');
+  const GRID = 48; // matches body background-size in style.css
+  let w, h, traces, signals;
+
+  function themeColor(varName, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return v || fallback;
+  }
+
+  function buildTraces() {
+    const cols = Math.max(4, Math.floor(w / GRID));
+    const rows = Math.max(4, Math.floor(h / GRID));
+    const count = Math.min(22, Math.max(8, Math.floor((w * h) / 130000)));
+    const list = [];
+
+    for (let i = 0; i < count; i++) {
+      let x = Math.floor(Math.random() * cols) * GRID;
+      let y = Math.floor(Math.random() * rows) * GRID;
+      const points = [{ x, y }];
+      let horizontal = Math.random() < 0.5;
+      const segments = 3 + Math.floor(Math.random() * 4);
+
+      for (let s = 0; s < segments; s++) {
+        const runCells = 1 + Math.floor(Math.random() * 3);
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        if (horizontal) x = Math.min(cols * GRID, Math.max(0, x + dir * runCells * GRID));
+        else y = Math.min(rows * GRID, Math.max(0, y + dir * runCells * GRID));
+        points.push({ x, y });
+        horizontal = !horizontal;
+      }
+
+      let total = 0;
+      const segLens = [];
+      for (let p = 1; p < points.length; p++) {
+        const len = Math.hypot(points[p].x - points[p - 1].x, points[p].y - points[p - 1].y);
+        segLens.push(len);
+        total += len;
+      }
+      if (total > 0) list.push({ points, segLens, total });
+    }
+    return list;
+  }
+
+  function pointAtProgress(trace, t) {
+    let dist = Math.max(0, Math.min(1, t)) * trace.total;
+    for (let i = 0; i < trace.segLens.length; i++) {
+      const segLen = trace.segLens[i];
+      if (dist <= segLen || i === trace.segLens.length - 1) {
+        const segT = segLen > 0 ? Math.min(1, dist / segLen) : 0;
+        const p0 = trace.points[i], p1 = trace.points[i + 1];
+        return { x: p0.x + (p1.x - p0.x) * segT, y: p0.y + (p1.y - p0.y) * segT };
+      }
+      dist -= segLen;
+    }
+    return trace.points[trace.points.length - 1];
+  }
+
+  function spawnSignal() {
+    return {
+      traceIndex: Math.floor(Math.random() * traces.length),
+      t: Math.random() * -0.4,
+      speed: 0.0025 + Math.random() * 0.004,
+      color: Math.random() < 0.72 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f')
+    };
+  }
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    traces = buildTraces();
+    const signalCount = Math.max(6, Math.round(traces.length * 0.7));
+    signals = Array.from({ length: signalCount }, spawnSignal);
+  }
+
+  function drawBoard() {
+    if (!traces || !traces.length) return;
+    const traceColor = themeColor('--accent-dim', '#1c5e68');
+    ctx.strokeStyle = traceColor;
+    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 1;
+    ctx.lineJoin = 'round';
+    traces.forEach(trace => {
+      ctx.beginPath();
+      trace.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.stroke();
+      ctx.fillStyle = traceColor;
+      trace.points.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill(); });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function drawSignals() {
+    signals.forEach(sig => {
+      sig.t += sig.speed;
+      if (sig.t > 1.15) { Object.assign(sig, spawnSignal()); return; }
+      if (sig.t < 0) return;
+
+      const trace = traces[sig.traceIndex];
+      const head = pointAtProgress(trace, sig.t);
+      const tail = pointAtProgress(trace, sig.t - 0.05);
+
+      const grad = ctx.createLinearGradient(tail.x, tail.y, head.x, head.y);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(1, sig.color);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(tail.x, tail.y);
+      ctx.lineTo(head.x, head.y);
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = sig.color;
+      ctx.shadowBlur = 9;
+      ctx.shadowColor = sig.color;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+    drawBoard();
+    drawSignals();
+    requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  tick();
+}
+
+// ---------------------------------------------------------
+// 5. Digital clock
+// ---------------------------------------------------------
 function initClock() {
   const timeEl = document.getElementById('clock-time');
   const dateEl = document.getElementById('clock-date');
+  const zoneEl = document.getElementById('clock-zone');
 
   function update() {
     const now = new Date();
     if (timeEl) timeEl.textContent = now.toTimeString().split(' ')[0];
     if (dateEl) {
       const options = { day: '2-digit', month: 'short', year: 'numeric' };
-      dateEl.textContent = now.toLocaleDateString('fr-FR', options).toUpperCase();
+      dateEl.textContent = now.toLocaleDateString('en-GB', options).toUpperCase();
     }
+    if (zoneEl) zoneEl.textContent = `REGION: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
   }
   update();
   setInterval(update, 1000);
 }
 
-// 4. Interactive 3D Canvas Blob
+// ---------------------------------------------------------
+// 6. Weather (Open-Meteo — free, no API key required)
+// ---------------------------------------------------------
+function initWeather() {
+  const tempEl = document.getElementById('weather-temp');
+  const descEl = document.getElementById('weather-desc');
+  const humidityEl = document.getElementById('weather-humidity');
+  const windEl = document.getElementById('weather-wind');
+
+  const WMO = {
+    0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Light snow', 73: 'Snow',
+    75: 'Heavy snow', 80: 'Rain showers', 81: 'Rain showers', 82: 'Violent showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm'
+  };
+
+  async function fetchWeather(lat, lon) {
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&temperature_unit=celsius`);
+      const data = await res.json();
+      const c = data.current;
+      if (tempEl) tempEl.textContent = `${Math.round(c.temperature_2m)}°C`;
+      if (descEl) descEl.textContent = (WMO[c.weather_code] || 'Unknown').toUpperCase();
+      if (humidityEl) humidityEl.textContent = Math.round(c.relative_humidity_2m);
+      if (windEl) windEl.textContent = Math.round(c.wind_speed_10m);
+    } catch (err) {
+      if (descEl) descEl.textContent = 'OFFLINE';
+      if (tempEl) tempEl.textContent = '--°';
+    }
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+      () => fetchWeather(48.8566, 2.3522), // Paris fallback if permission denied
+      { timeout: 6000 }
+    );
+  } else {
+    fetchWeather(48.8566, 2.3522);
+  }
+}
+
+// ---------------------------------------------------------
+// 7. Interactive canvas blob — reacts to mouse, theme color,
+//    and the current HUD state (idle/listening/thinking/speaking)
+// ---------------------------------------------------------
 function initInteractiveBlob() {
   const canvas = document.getElementById('blob-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  
-  let time = 0;
-  let mouseX = 110;
-  let mouseY = 110;
-
   const hudCore = document.getElementById('hud-core');
+
+  let time = 0;
+  let mouseX = canvas.width / 2;
+  let mouseY = canvas.height / 2;
+
   if (hudCore) {
     hudCore.addEventListener('mousemove', (e) => {
       const rect = hudCore.getBoundingClientRect();
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
+      mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
     });
+  }
+
+  function getHudColor() {
+    if (!hudCore) return '#4fd8e6';
+    const val = getComputedStyle(hudCore).getPropertyValue('--hud-c').trim();
+    return val || '#4fd8e6';
   }
 
   function drawBlob() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    time += 0.04;
+
+    let amplitude = 6, freqMul = 1;
+    switch (window.jarvisHudState) {
+      case 'listening': amplitude = 10; freqMul = 1.8; break;
+      case 'thinking': amplitude = 14; freqMul = 2.4; break;
+      case 'speaking': amplitude = 9; freqMul = 1.5; break;
+      default: amplitude = 6; freqMul = 1;
+    }
+    time += 0.04 * freqMul;
 
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const baseRadius = 55;
     const points = 12;
+    const color = getHudColor();
 
     ctx.beginPath();
     for (let i = 0; i <= points; i++) {
@@ -129,7 +455,7 @@ function initInteractiveBlob() {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const pull = Math.max(0, (80 - dist) / 80) * 12;
 
-      const offset = Math.sin(time + i * 1.5) * 6 + Math.cos(time * 0.8 + i) * 4 + pull;
+      const offset = Math.sin(time + i * 1.5) * amplitude * 0.7 + Math.cos(time * 0.8 + i) * amplitude * 0.5 + pull;
       const r = baseRadius + offset;
       const x = centerX + Math.cos(angle) * r;
       const y = centerY + Math.sin(angle) * r;
@@ -141,11 +467,11 @@ function initInteractiveBlob() {
 
     const gradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 70);
     gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(0.4, '#4fd8e6');
-    gradient.addColorStop(1, 'rgba(28, 94, 104, 0.2)');
+    gradient.addColorStop(0.4, color);
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
     ctx.fillStyle = gradient;
-    ctx.shadowColor = '#4fd8e6';
+    ctx.shadowColor = color;
     ctx.shadowBlur = 20;
     ctx.fill();
 
@@ -155,48 +481,130 @@ function initInteractiveBlob() {
   drawBlob();
 }
 
-// 5. Improved Dashboard Grid Drag & Drop
-function initDashboardDragAndDrop() {
+// ---------------------------------------------------------
+// 8. Free-form draggable dashboard widgets (desktop only —
+//    positions persist in localStorage; mobile keeps normal
+//    grid flow for usability)
+// ---------------------------------------------------------
+const WIDGET_POS_KEY = 'jarvis-widget-positions';
+
+function loadWidgetPositions() {
+  try { return JSON.parse(localStorage.getItem(WIDGET_POS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function saveWidgetPosition(id, x, y) {
+  const all = loadWidgetPositions();
+  all[id] = { x, y };
+  try { localStorage.setItem(WIDGET_POS_KEY, JSON.stringify(all)); } catch (e) { /* storage unavailable */ }
+}
+
+function initDraggableWidgets() {
   const grid = document.getElementById('dashboard-grid');
   if (!grid) return;
+  const widgets = Array.from(grid.querySelectorAll('.widget'));
+  const positions = loadWidgetPositions();
+  const desktopQuery = window.matchMedia('(min-width: 880px)');
 
-  let draggedItem = null;
-
-  grid.querySelectorAll('.widget').forEach(widget => {
-    widget.addEventListener('dragstart', (e) => {
-      draggedItem = widget;
-      widget.classList.add('dragging-widget');
-      e.dataTransfer.effectAllowed = 'move';
+  function updateGridHeight() {
+    let maxBottom = 0;
+    widgets.forEach(w => {
+      const bottom = w.offsetTop + w.offsetHeight;
+      if (bottom > maxBottom) maxBottom = bottom;
     });
+    grid.style.minHeight = Math.max(320, maxBottom + 24) + 'px';
+  }
 
-    widget.addEventListener('dragend', () => {
-      widget.classList.remove('dragging-widget');
-      draggedItem = null;
-    });
-
-    widget.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-    });
-
-    widget.addEventListener('drop', (e) => {
-      e.preventDefault();
-      if (draggedItem && draggedItem !== widget) {
-        const children = Array.from(grid.children);
-        const draggedIndex = children.indexOf(draggedItem);
-        const targetIndex = children.indexOf(widget);
-
-        if (draggedIndex < targetIndex) {
-          grid.insertBefore(draggedItem, widget.nextSibling);
-        } else {
-          grid.insertBefore(draggedItem, widget);
-        }
+  function enableFreeDrag() {
+    grid.classList.add('free-drag');
+    const gridRect = grid.getBoundingClientRect();
+    widgets.forEach(w => {
+      const saved = positions[w.id];
+      if (saved) {
+        w.style.left = saved.x + 'px';
+        w.style.top = saved.y + 'px';
+      } else {
+        const r = w.getBoundingClientRect();
+        w.style.left = Math.round(r.left - gridRect.left) + 'px';
+        w.style.top = Math.round(r.top - gridRect.top) + 'px';
       }
     });
+    updateGridHeight();
+  }
+
+  function disableFreeDrag() {
+    grid.classList.remove('free-drag');
+    grid.style.minHeight = '';
+    widgets.forEach(w => { w.style.left = ''; w.style.top = ''; });
+  }
+
+  function handleChange() { desktopQuery.matches ? enableFreeDrag() : disableFreeDrag(); }
+  desktopQuery.addEventListener('change', handleChange);
+  handleChange();
+
+  widgets.forEach(w => {
+    const handle = w.querySelector('.widget-header');
+    if (!handle) return;
+    let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+      if (!desktopQuery.matches) return;
+      dragging = true;
+      try { handle.setPointerCapture(e.pointerId); } catch (err) { /* not critical */ }
+      startX = e.clientX; startY = e.clientY;
+      origLeft = parseFloat(w.style.left) || 0;
+      origTop = parseFloat(w.style.top) || 0;
+      w.classList.add('dragging-widget');
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const gridRect = grid.getBoundingClientRect();
+      let newLeft = origLeft + dx;
+      let newTop = origTop + dy;
+      newLeft = Math.max(0, Math.min(newLeft, gridRect.width - w.offsetWidth));
+      newTop = Math.max(0, newTop);
+      w.style.left = newLeft + 'px';
+      w.style.top = newTop + 'px';
+    });
+
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      w.classList.remove('dragging-widget');
+      saveWidgetPosition(w.id, parseFloat(w.style.left) || 0, parseFloat(w.style.top) || 0);
+      updateGridHeight();
+    }
+    handle.addEventListener('pointerup', endDrag);
+    handle.addEventListener('pointercancel', endDrag);
+  });
+
+  window.addEventListener('resize', () => { if (desktopQuery.matches) updateGridHeight(); });
+}
+
+// ---------------------------------------------------------
+// 9. Scratchpad — persists to localStorage
+// ---------------------------------------------------------
+function initScratchpad() {
+  const ta = document.getElementById('daily-scratchpad');
+  if (!ta) return;
+
+  const saved = localStorage.getItem('jarvis-scratchpad');
+  if (saved !== null) ta.value = saved;
+
+  let debounceTimer = null;
+  ta.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      try { localStorage.setItem('jarvis-scratchpad', ta.value); } catch (e) { /* storage unavailable */ }
+    }, 350);
   });
 }
 
-// 6. Focus Cycle Pomodoro Timer
+// ---------------------------------------------------------
+// 10. Focus Cycle Pomodoro Timer
+// ---------------------------------------------------------
 function initPomodoroTimer() {
   let timer = null;
   let timeLeft = 25 * 60;
@@ -226,7 +634,7 @@ function initPomodoroTimer() {
             clearInterval(timer);
             timer = null;
             startBtn.textContent = 'START';
-            speakResponse("Focus cycle complete.");
+            speakResponse('Focus cycle complete.');
           }
         }, 1000);
       }
@@ -243,39 +651,269 @@ function initPomodoroTimer() {
   }
 }
 
-// 7. Task Management Engine
+// ---------------------------------------------------------
+// 11. Task board — 3-column kanban with drag-and-drop,
+//     priority, due dates, and localStorage persistence
+// ---------------------------------------------------------
+const TASKS_KEY = 'jarvis-tasks';
+const TASK_STATUSES = ['todo', 'developing', 'done'];
+let tasks = [];
+let nextTaskId = 1;
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(TASKS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveTasks() {
+  try { localStorage.setItem(TASKS_KEY, JSON.stringify(tasks)); } catch (e) { /* storage unavailable */ }
+}
+
+function formatDue(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+function isOverdue(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(dateStr + 'T00:00:00') < today;
+}
+
+function renderTasks() {
+  TASK_STATUSES.forEach(status => {
+    const listEl = document.getElementById(`list-${status}`);
+    const emptyEl = document.getElementById(`empty-${status}`);
+    const countEl = document.getElementById(`count-${status}`);
+    if (!listEl) return;
+
+    const items = tasks.filter(t => t.status === status);
+    listEl.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = items.length ? 'none' : 'block';
+    if (countEl) countEl.textContent = items.length;
+
+    items.forEach(task => {
+      const idx = TASK_STATUSES.indexOf(status);
+      const li = document.createElement('li');
+      li.className = 'kanban-item';
+      li.draggable = true;
+
+      const metaBits = [`<span class="badge ${task.priority}">${task.priority}</span>`];
+      if (task.due) {
+        const overdue = status !== 'done' && isOverdue(task.due);
+        metaBits.push(`<span class="due-date${overdue ? ' overdue' : ''}">${overdue ? '⚠ ' : ''}Due ${formatDue(task.due)}</span>`);
+      }
+
+      li.innerHTML = `
+        <span class="card-text"></span>
+        <div class="card-meta">${metaBits.join('')}</div>
+        <div class="card-actions">
+          <div class="card-move">
+            <button class="move-back" aria-label="Move to previous category">‹</button>
+            <button class="move-fwd" aria-label="Move to next category">›</button>
+          </div>
+          <button class="card-del" aria-label="Delete task">✕</button>
+        </div>
+      `;
+      li.querySelector('.card-text').textContent = task.text;
+
+      const backBtn = li.querySelector('.move-back');
+      const fwdBtn = li.querySelector('.move-fwd');
+      backBtn.disabled = idx === 0;
+      fwdBtn.disabled = idx === TASK_STATUSES.length - 1;
+      backBtn.addEventListener('click', () => moveTaskStep(task, -1));
+      fwdBtn.addEventListener('click', () => moveTaskStep(task, 1));
+
+      li.querySelector('.card-del').addEventListener('click', () => {
+        tasks = tasks.filter(t => t.id !== task.id);
+        saveTasks();
+        renderTasks();
+      });
+
+      li.addEventListener('dragstart', (e) => {
+        draggedTaskId = task.id;
+        li.classList.add('dragging-task');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(task.id));
+      });
+      li.addEventListener('dragend', () => {
+        li.classList.remove('dragging-task');
+        draggedTaskId = null;
+      });
+
+      listEl.appendChild(li);
+    });
+  });
+}
+
+function moveTaskTo(task, newStatus) {
+  if (task.status === newStatus) return;
+  task.status = newStatus;
+  saveTasks();
+  renderTasks();
+}
+function moveTaskStep(task, direction) {
+  const idx = TASK_STATUSES.indexOf(task.status);
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= TASK_STATUSES.length) return;
+  moveTaskTo(task, TASK_STATUSES[newIdx]);
+}
+
+function addNewTask(title, priority = 'medium', due = null) {
+  tasks.push({ id: nextTaskId++, text: title, priority, due: due || null, status: 'todo' });
+  saveTasks();
+  renderTasks();
+}
+
 function initTaskBoard() {
+  tasks = loadTasks();
+  nextTaskId = tasks.reduce((max, t) => Math.max(max, t.id), 0) + 1;
+
   const form = document.getElementById('task-form');
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const input = document.getElementById('task-input-text');
-      const priority = document.getElementById('task-input-priority').value;
-      if (input && input.value.trim()) {
-        addNewTask(input.value.trim(), priority);
-        input.value = '';
+      const textInput = document.getElementById('task-input-text');
+      const priorityInput = document.getElementById('task-input-priority');
+      const dueInput = document.getElementById('task-input-due');
+      if (textInput && textInput.value.trim()) {
+        addNewTask(textInput.value.trim(), priorityInput ? priorityInput.value : 'medium', dueInput ? dueInput.value : null);
+        textInput.value = '';
+        if (dueInput) dueInput.value = '';
+        if (priorityInput) priorityInput.value = 'medium';
       }
     });
   }
+
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      const id = Number(e.dataTransfer.getData('text/plain')) || draggedTaskId;
+      const task = tasks.find(t => t.id === id);
+      if (task) moveTaskTo(task, col.dataset.status);
+    });
+  });
+
+  const kanban = document.getElementById('kanban');
+  document.querySelectorAll('.task-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.task-tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
+      btn.setAttribute('aria-selected', 'true');
+      if (kanban) kanban.dataset.active = btn.dataset.status;
+    });
+  });
+
+  renderTasks();
 }
 
-function addNewTask(title, priority = 'medium') {
-  const list = document.getElementById('list-todo');
-  if (!list) return;
+// ---------------------------------------------------------
+// 12. Comms — Gemini API chat + local command interception
+//     + voice input
+// ---------------------------------------------------------
+let chatHistory = []; // Gemini format: { role: 'user'|'model', parts: [{ text }] }
 
-  const item = document.createElement('li');
-  item.className = 'kanban-item';
-  item.innerHTML = `
-    <span>${title}</span>
-    <span class="badge ${priority}">${priority.toUpperCase()}</span>
-  `;
-  list.appendChild(item);
+function appendChatMessage(sender, text) {
+  const log = document.getElementById('chat-log');
+  if (!log) return;
+  const emptyMsg = document.getElementById('chat-empty') || log.querySelector('.chat-empty');
+  if (emptyMsg) emptyMsg.style.display = 'none';
 
-  const countEl = document.getElementById('count-todo');
-  if (countEl) countEl.textContent = list.children.length;
+  const div = document.createElement('div');
+  div.className = `msg ${sender}`;
+  const label = sender === 'user' ? 'OPERATIVE' : sender === 'jarvis' ? 'JARVIS' : 'SYSTEM';
+  div.innerHTML = `<div class="who">${label}</div><div class="bubble"></div>`;
+  div.querySelector('.bubble').textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
 }
 
-// 8. Comms Form, Natural Command Parser & Speech Recognition
+async function callGemini(userText) {
+  const apiKey = localStorage.getItem('jarvis_api_key') || '';
+  if (!apiKey) {
+    appendChatMessage('system', 'No API key set. Click the gear icon and add your Google AI Studio API key to enable live responses.');
+    return;
+  }
+
+  chatHistory.push({ role: 'user', parts: [{ text: userText }] });
+  setHudState('thinking');
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: chatHistory,
+        systemInstruction: {
+          parts: [{ text: 'You are JARVIS, a courteous, efficient personal AI assistant addressing the user as "sir" or "Operative". Keep replies concise, confident, and professional, in the style of a helpful sci-fi assistant, without being overly theatrical.' }]
+        },
+        generationConfig: { maxOutputTokens: 1024 }
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error?.message || `Request failed (${res.status})`);
+    }
+
+    const data = await res.json();
+    const reply = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim() || '(Empty response)';
+    chatHistory.push({ role: 'model', parts: [{ text: reply }] });
+    setHudState(null);
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+  } catch (err) {
+    setHudState(null);
+    appendChatMessage('system', `Error: ${err.message}`);
+  }
+}
+
+function handleUserMessage(rawInput) {
+  const text = rawInput.toLowerCase();
+
+  // Local command: create task
+  if (text.includes('task') && (text.includes('creat') || text.includes('add'))) {
+    let title = rawInput.replace(/(creat\w*|add)\s+task\s+/i, '');
+    let priority = 'medium';
+    if (text.includes('priority:high') || text.includes('high priority')) priority = 'high';
+    if (text.includes('priority:low') || text.includes('low priority')) priority = 'low';
+    title = title.replace(/priority:\w+/gi, '').replace(/deadline:[\d/-]+/gi, '').trim();
+    if (!title) title = 'New Directive Task';
+
+    addNewTask(title, priority);
+    const reply = `Task "${title}" created and added to the Task Board, sir.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // Local command: create folder
+  if (text.includes('folder') && (text.includes('creat') || text.includes('mkdir'))) {
+    const name = rawInput.replace(/(creat\w*|mkdir)\s+folder\s+/i, '').trim() || 'New_Folder';
+    executeWorkspaceCommand(`mkdir ${name}`);
+    const reply = `Directory /${name} created in the Workplace files.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // Local command: create file
+  if (text.includes('file') && (text.includes('creat') || text.includes('touch'))) {
+    const name = rawInput.replace(/(creat\w*|touch)\s+file\s+/i, '').trim() || 'script.js';
+    executeWorkspaceCommand(`touch ${name}`);
+    const reply = `File ${name} created in the Workplace files.`;
+    appendChatMessage('jarvis', reply);
+    speakResponse(reply);
+    return;
+  }
+
+  // Nothing local matched — hand off to Gemini for a real reply
+  callGemini(rawInput);
+}
+
 function initCommsFormAndSpeech() {
   const form = document.getElementById('chat-form');
   const input = document.getElementById('chat-input');
@@ -287,11 +925,9 @@ function initCommsFormAndSpeech() {
       e.preventDefault();
       const msg = input.value.trim();
       if (!msg) return;
-
       appendChatMessage('user', msg);
       input.value = '';
-
-      processCommsCommand(msg);
+      handleUserMessage(msg);
     });
   }
 
@@ -304,109 +940,74 @@ function initCommsFormAndSpeech() {
     micBtn.addEventListener('click', () => {
       try {
         recognition.start();
-        micBtn.classList.add('recording');
-        if (micText) micText.textContent = 'LISTENING...';
       } catch (err) {
-        recognition.stop();
+        try { recognition.stop(); } catch (e2) { /* ignore */ }
       }
     });
 
+    recognition.onstart = () => {
+      micBtn.classList.add('recording');
+      if (micText) micText.textContent = 'LISTENING...';
+      setHudState('listening');
+    };
     recognition.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
       if (input) input.value = transcript;
     };
-
     recognition.onend = () => {
       micBtn.classList.remove('recording');
       if (micText) micText.textContent = 'MIC';
+      setHudState(null);
+      if (input && input.value.trim() && form) form.requestSubmit();
     };
+    recognition.onerror = () => {
+      micBtn.classList.remove('recording');
+      if (micText) micText.textContent = 'MIC';
+      setHudState(null);
+    };
+  } else if (micBtn) {
+    micBtn.disabled = true;
+    micBtn.title = 'Voice input not supported in this browser';
   }
 }
 
-// Process Comms Commands dynamically
-function processCommsCommand(rawInput) {
-  const text = rawInput.toLowerCase();
+// ---------------------------------------------------------
+// 13. Workplace: virtual file tree (persisted) + terminal
+// ---------------------------------------------------------
+const FS_KEY = 'jarvis-fs';
+let fsItems = [];
 
-  // Task Creation Command Pattern
-  if (text.includes('task') && (text.includes('creat') || text.includes('create') || text.includes('add'))) {
-    let taskTitle = rawInput.replace(/(creat|create|add)\s+task\s+/i, '');
-    let priority = 'medium';
-
-    if (text.includes('priority:high') || text.includes('high priority')) priority = 'high';
-    if (text.includes('priority:low') || text.includes('low priority')) priority = 'low';
-
-    // Strip parameters for title
-    taskTitle = taskTitle.replace(/priority:\w+/gi, '').replace(/deadline:[\d\/]+/gi, '').trim();
-    if (!taskTitle) taskTitle = 'New Directive Task';
-
-    addNewTask(taskTitle, priority);
-    const reply = `Task "${taskTitle}" successfully created and added to the Task Board.`;
-    appendChatMessage('jarvis', reply);
-    speakResponse(reply);
-    return;
-  }
-
-  // Folder Creation Command Pattern
-  if (text.includes('folder') && (text.includes('creat') || text.includes('create') || text.includes('mkdir'))) {
-    const folderName = rawInput.replace(/(creat|create|mkdir)\s+folder\s+/i, '').trim() || 'New_Folder';
-    executeWorkspaceCommand(`mkdir ${folderName}`);
-    const reply = `Directory /${folderName} created in Workplace files.`;
-    appendChatMessage('jarvis', reply);
-    speakResponse(reply);
-    return;
-  }
-
-  // File Creation Command Pattern
-  if (text.includes('file') && (text.includes('creat') || text.includes('create') || text.includes('touch'))) {
-    const fileName = rawInput.replace(/(creat|create|touch)\s+file\s+/i, '').trim() || 'script.js';
-    executeWorkspaceCommand(`touch ${fileName}`);
-    const reply = `File ${fileName} created in Workplace files.`;
-    appendChatMessage('jarvis', reply);
-    speakResponse(reply);
-    return;
-  }
-
-  // Default Fallback Command Processing
-  const reply = `Acknowledged operative. Processing routine executed for: "${rawInput}"`;
-  appendChatMessage('jarvis', reply);
-  speakResponse(reply);
+function loadFs() {
+  try {
+    const raw = localStorage.getItem(FS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through to defaults */ }
+  return [
+    { type: 'folder', name: '/root' },
+    { type: 'file', name: 'app.js' },
+    { type: 'file', name: 'index.html' },
+    { type: 'file', name: 'style.css' }
+  ];
+}
+function saveFs() {
+  try { localStorage.setItem(FS_KEY, JSON.stringify(fsItems)); } catch (e) { /* storage unavailable */ }
 }
 
-function appendChatMessage(sender, text) {
-  const log = document.getElementById('chat-log');
-  if (!log) return;
-
-  const emptyMsg = log.querySelector('.chat-empty');
-  if (emptyMsg) emptyMsg.remove();
-
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `msg ${sender}`;
-  msgDiv.innerHTML = `<div class="bubble">${text}</div>`;
-  log.appendChild(msgDiv);
-  log.scrollTop = log.scrollHeight;
-}
-
-// 9. Workplace Terminal Execution
-function initWorkplaceTerminal() {
-  const input = document.getElementById('terminal-input');
-  if (!input) return;
-
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const cmd = input.value.trim();
-      if (!cmd) return;
-
-      appendTerminalLog(`> ${cmd}`, 'user-cmd');
-      executeWorkspaceCommand(cmd);
-      input.value = '';
-    }
+function renderFileTree() {
+  const list = document.getElementById('fs-root-list');
+  if (!list) return;
+  list.innerHTML = '';
+  fsItems.forEach(item => {
+    const li = document.createElement('li');
+    li.className = `fs-item ${item.type}`;
+    li.textContent = item.type === 'folder' ? `📁 ${item.name}` : `📄 ${item.name}`;
+    list.appendChild(li);
   });
 }
 
 function appendTerminalLog(text, className = 'sys-msg') {
   const output = document.getElementById('terminal-output');
   if (!output) return;
-
   const entry = document.createElement('div');
   entry.className = `log-entry ${className}`;
   entry.textContent = text;
@@ -415,37 +1016,35 @@ function appendTerminalLog(text, className = 'sys-msg') {
 }
 
 function executeWorkspaceCommand(cmdStr) {
-  const parts = cmdStr.split(' ');
+  const parts = cmdStr.trim().split(' ');
   const command = parts[0].toLowerCase();
-  const args = parts.slice(1).join(' ');
-  const treeList = document.getElementById('fs-root-list');
+  const args = parts.slice(1).join(' ').trim();
 
   switch (command) {
     case 'mkdir':
-      if (treeList && args) {
-        const li = document.createElement('li');
-        li.className = 'fs-item folder';
-        li.textContent = `📁 /${args}`;
-        treeList.appendChild(li);
+      if (args) {
+        fsItems.push({ type: 'folder', name: `/${args}` });
+        saveFs();
+        renderFileTree();
         appendTerminalLog(`Created directory: /${args}`, 'success');
       }
       break;
 
     case 'touch':
     case 'create':
-      if (treeList && args) {
-        const li = document.createElement('li');
-        li.className = 'fs-item file';
-        li.textContent = `📄 ${args}`;
-        treeList.appendChild(li);
+      if (args) {
+        fsItems.push({ type: 'file', name: args });
+        saveFs();
+        renderFileTree();
         appendTerminalLog(`Created file: ${args}`, 'success');
       }
       break;
 
-    case 'clear':
+    case 'clear': {
       const output = document.getElementById('terminal-output');
       if (output) output.innerHTML = '';
       break;
+    }
 
     case 'help':
       appendTerminalLog('Available commands: mkdir <dir>, touch <file>, clear, help', 'sys-msg');
@@ -457,21 +1056,54 @@ function executeWorkspaceCommand(cmdStr) {
   }
 }
 
-// 10. Masculine Voice Synthesis
+function initWorkplaceTerminal() {
+  fsItems = loadFs();
+  renderFileTree();
+
+  const input = document.getElementById('terminal-input');
+  if (!input) return;
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      appendTerminalLog(`> ${cmd}`, 'user-cmd');
+      executeWorkspaceCommand(cmd);
+      input.value = '';
+    }
+  });
+}
+
+// ---------------------------------------------------------
+// 14. Masculine voice synthesis (with persisted rate/pitch)
+// ---------------------------------------------------------
+function pickMasculineVoice(voices) {
+  if (!voices.length) return null;
+  const englishVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const pool = englishVoices.length ? englishVoices : voices;
+
+  const nameHints = ['david', 'mark', 'george', 'daniel', 'alex', 'fred', 'guy', 'ryan', 'male', 'man', 'tom', 'james', 'arthur'];
+  const femaleHints = ['female', 'woman', 'samantha', 'victoria', 'karen', 'susan', 'zira', 'moira', 'tessa', 'fiona', 'allison', 'ava'];
+
+  const scored = pool.map(v => {
+    const n = v.name.toLowerCase();
+    let score = 0;
+    if (nameHints.some(h => n.includes(h))) score += 2;
+    if (femaleHints.some(h => n.includes(h))) score -= 3;
+    if (v.localService) score += 1; // prefer higher-quality local voices when available
+    return { voice: v, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0] ? scored[0].voice : pool[0];
+}
+
 function initSpeechSynthesis() {
   if (!('speechSynthesis' in window)) return;
 
   function loadVoices() {
     const voices = window.speechSynthesis.getVoices();
-    // Search for masculine voice candidates
-    selectedVoice = voices.find(v => 
-      v.name.includes('David') || 
-      v.name.includes('Mark') || 
-      v.name.includes('George') || 
-      v.name.includes('Google US English') ||
-      v.name.toLowerCase().includes('male')
-    ) || voices[0];
-
+    if (!voices.length) return;
+    selectedVoice = pickMasculineVoice(voices);
     const label = document.getElementById('voice-name-label');
     if (label && selectedVoice) label.textContent = selectedVoice.name;
   }
@@ -479,64 +1111,165 @@ function initSpeechSynthesis() {
   loadVoices();
   window.speechSynthesis.onvoiceschanged = loadVoices;
 
+  const speedInput = document.getElementById('sys-voice-speed');
+  const pitchInput = document.getElementById('sys-voice-pitch');
+  const savedRate = localStorage.getItem('jarvis-voice-rate');
+  const savedPitch = localStorage.getItem('jarvis-voice-pitch');
+  if (speedInput && savedRate) speedInput.value = savedRate;
+  if (pitchInput && savedPitch) pitchInput.value = savedPitch;
+  if (speedInput) speedInput.addEventListener('input', () => { try { localStorage.setItem('jarvis-voice-rate', speedInput.value); } catch (e) { /* ignore */ } });
+  if (pitchInput) pitchInput.addEventListener('input', () => { try { localStorage.setItem('jarvis-voice-pitch', pitchInput.value); } catch (e) { /* ignore */ } });
+
   const testBtn = document.getElementById('btn-test-voice');
   if (testBtn) {
     testBtn.addEventListener('click', () => {
-      speakResponse("Voice synthesis check online. Masculine profile active.");
+      speakResponse('Voice synthesis check online. Masculine profile active, sir.');
     });
   }
 }
 
 function speakResponse(text) {
   if (!('speechSynthesis' in window)) return;
-
-  window.speechSynthesis.cancel(); // Stop prior audio playback
-  const utterance = new SpeechSynthesisUtterance(text);
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
 
   const pitchInput = document.getElementById('sys-voice-pitch');
   const speedInput = document.getElementById('sys-voice-speed');
+  utter.pitch = pitchInput ? parseFloat(pitchInput.value) : 0.8;
+  utter.rate = speedInput ? parseFloat(speedInput.value) : 1.0;
+  if (selectedVoice) utter.voice = selectedVoice;
 
-  utterance.pitch = pitchInput ? parseFloat(pitchInput.value) : 0.8;
-  utterance.rate = speedInput ? parseFloat(speedInput.value) : 1.0;
+  utter.onstart = () => setHudState('speaking');
+  utter.onend = () => setHudState(null);
 
-  if (selectedVoice) utterance.voice = selectedVoice;
-
-  window.speechSynthesis.speak(utterance);
+  window.speechSynthesis.speak(utter);
 }
 
-// 11. Settings & Modal Handler
-function initThemeAndModal() {
-  const swatches = document.querySelectorAll('.swatch');
-  swatches.forEach(swatch => {
-    swatch.addEventListener('click', () => {
-      const theme = swatch.getAttribute('data-theme');
-      document.documentElement.setAttribute('data-theme', theme);
-      swatches.forEach(s => s.classList.remove('active'));
-      swatch.classList.add('active');
+// ---------------------------------------------------------
+// 15. Ambient sound — rain & white noise, generated live via
+//     Web Audio API (no audio files, works offline)
+// ---------------------------------------------------------
+const AmbientSound = (() => {
+  let ctx = null;
+  let masterGain = null;
+  let noiseBuffer = null;
+  let rainSource = null, rainGain = null, rainLow = null, rainHigh = null;
+  let whiteSource = null, whiteGain = null;
+
+  function buildNoiseBuffer(seconds) {
+    const rate = ctx.sampleRate;
+    const buffer = ctx.createBuffer(1, rate * seconds, rate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+  }
+
+  function ensureContext() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0.4;
+      masterGain.connect(ctx.destination);
+      noiseBuffer = buildNoiseBuffer(4);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function setVolume(v) { if (masterGain) masterGain.gain.value = v; }
+  function isRainPlaying() { return !!rainSource; }
+  function isWhitePlaying() { return !!whiteSource; }
+
+  function playRain() {
+    ensureContext();
+    if (rainSource) return;
+    rainSource = ctx.createBufferSource();
+    rainSource.buffer = noiseBuffer;
+    rainSource.loop = true;
+
+    rainLow = ctx.createBiquadFilter();
+    rainLow.type = 'lowpass';
+    rainLow.frequency.value = 2200;
+
+    rainHigh = ctx.createBiquadFilter();
+    rainHigh.type = 'highpass';
+    rainHigh.frequency.value = 280;
+
+    rainGain = ctx.createGain();
+    rainGain.gain.value = 0.9;
+
+    rainSource.connect(rainLow).connect(rainHigh).connect(rainGain).connect(masterGain);
+    rainSource.start();
+  }
+
+  function stopRain() {
+    if (rainSource) {
+      try { rainSource.stop(); } catch (e) { /* already stopped */ }
+      rainSource.disconnect();
+      rainSource = null;
+    }
+  }
+
+  function playWhite() {
+    ensureContext();
+    if (whiteSource) return;
+    whiteSource = ctx.createBufferSource();
+    whiteSource.buffer = noiseBuffer;
+    whiteSource.loop = true;
+    whiteGain = ctx.createGain();
+    whiteGain.gain.value = 0.5;
+    whiteSource.connect(whiteGain).connect(masterGain);
+    whiteSource.start();
+  }
+
+  function stopWhite() {
+    if (whiteSource) {
+      try { whiteSource.stop(); } catch (e) { /* already stopped */ }
+      whiteSource.disconnect();
+      whiteSource = null;
+    }
+  }
+
+  return { playRain, stopRain, playWhite, stopWhite, isRainPlaying, isWhitePlaying, setVolume, ensureContext };
+})();
+
+function initAmbientSound() {
+  const rainBtn = document.getElementById('btn-ambient-rain');
+  const whiteBtn = document.getElementById('btn-ambient-white');
+  const volumeInput = document.getElementById('ambient-volume');
+
+  const savedVolume = localStorage.getItem('jarvis-ambient-volume');
+  if (volumeInput && savedVolume !== null) volumeInput.value = savedVolume;
+
+  if (volumeInput) {
+    volumeInput.addEventListener('input', () => {
+      AmbientSound.setVolume(parseFloat(volumeInput.value));
+      try { localStorage.setItem('jarvis-ambient-volume', volumeInput.value); } catch (e) { /* ignore */ }
     });
-  });
-
-  const modal = document.getElementById('settings-modal');
-  const openBtn = document.getElementById('btn-settings-toggle');
-  const closeBtn = document.getElementById('btn-modal-close');
-  const saveBtn = document.getElementById('btn-modal-save');
-  const apiKeyInput = document.getElementById('api-key-input');
-
-  const savedKey = localStorage.getItem('jarvis_api_key');
-  if (savedKey && apiKeyInput) apiKeyInput.value = savedKey;
-
-  if (openBtn && modal) {
-    openBtn.addEventListener('click', () => modal.classList.add('open'));
   }
 
-  if (closeBtn && modal) {
-    closeBtn.addEventListener('click', () => modal.classList.remove('open'));
+  if (rainBtn) {
+    rainBtn.addEventListener('click', () => {
+      if (AmbientSound.isRainPlaying()) {
+        AmbientSound.stopRain();
+        rainBtn.classList.remove('active-state');
+      } else {
+        AmbientSound.setVolume(volumeInput ? parseFloat(volumeInput.value) : 0.4);
+        AmbientSound.playRain();
+        rainBtn.classList.add('active-state');
+      }
+    });
   }
 
-  if (saveBtn && apiKeyInput && modal) {
-    saveBtn.addEventListener('click', () => {
-      localStorage.setItem('jarvis_api_key', apiKeyInput.value.trim());
-      modal.classList.remove('open');
+  if (whiteBtn) {
+    whiteBtn.addEventListener('click', () => {
+      if (AmbientSound.isWhitePlaying()) {
+        AmbientSound.stopWhite();
+        whiteBtn.classList.remove('active-state');
+      } else {
+        AmbientSound.setVolume(volumeInput ? parseFloat(volumeInput.value) : 0.4);
+        AmbientSound.playWhite();
+        whiteBtn.classList.add('active-state');
+      }
     });
   }
 }
