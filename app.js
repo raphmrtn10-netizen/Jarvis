@@ -94,6 +94,7 @@ const Sound = (() => {
    ========================================================= */
 (function circuitBoard(){
   const canvas = document.getElementById('particle-field');
+  if (!canvas) return;
   if (reducedMotion){ canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
   const GRID = 48;
@@ -263,17 +264,42 @@ const Sound = (() => {
 })();
 
 /* =========================================================
-   5. CLOCK / DATE READOUT
+   5. CLOCK / DATE READOUT & DASHBOARD CLOCK WIDGET
    ========================================================= */
 (function clock(){
   const timeEl = document.getElementById('clock-time');
   const dateEl = document.getElementById('clock-date');
   const zoneEl = document.getElementById('clock-zone');
+  
+  const digitalTimeEl = document.getElementById('digital-clock-time');
+  const digitalAmPmEl = document.getElementById('clock-ampm');
+  const digitalDateEl = document.getElementById('digital-clock-date');
+
   function tick(){
     const now = new Date();
-    timeEl.textContent = now.toLocaleTimeString([], { hour12: false });
-    dateEl.textContent = now.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
-    zoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    if (timeEl) timeEl.textContent = now.toLocaleTimeString([], { hour12: false });
+    if (dateEl) dateEl.textContent = now.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
+    if (zoneEl) zoneEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    if (digitalTimeEl) {
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      digitalTimeEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds}`;
+      if (digitalAmPmEl) digitalAmPmEl.textContent = ampm;
+    }
+
+    if (digitalDateEl) {
+      digitalDateEl.textContent = now.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }).toUpperCase();
+    }
   }
   tick();
   setInterval(tick, 1000);
@@ -301,13 +327,13 @@ const Sound = (() => {
       const data = await res.json();
       const temp = Math.round(data.current.temperature_2m);
       const code = data.current.weather_code;
-      locEl.textContent = label;
-      tempEl.textContent = `${temp}°C`;
-      condEl.textContent = WMO[code] || 'Unknown';
+      if (locEl) locEl.textContent = label;
+      if (tempEl) tempEl.textContent = `${temp}°C`;
+      if (condEl) condEl.textContent = WMO[code] || 'Unknown';
     }catch(err){
-      locEl.textContent = 'Unavailable';
-      tempEl.textContent = '--';
-      condEl.textContent = 'Offline';
+      if (locEl) locEl.textContent = 'Unavailable';
+      if (tempEl) tempEl.textContent = '--';
+      if (condEl) condEl.textContent = 'Offline';
     }
   }
 
@@ -406,11 +432,12 @@ const Sound = (() => {
   }
 
   function render(){
+    if (!lists.todo) return;
     STATUSES.forEach(status => {
       const items = tasksArr.filter(t => t.status === status);
       lists[status].innerHTML = '';
-      emptyMsgs[status].style.display = items.length ? 'none' : 'block';
-      counts[status].textContent = items.length;
+      if (emptyMsgs[status]) emptyMsgs[status].style.display = items.length ? 'none' : 'block';
+      if (counts[status]) counts[status].textContent = items.length;
 
       items.forEach(task => {
         const idx = STATUSES.indexOf(status);
@@ -467,7 +494,7 @@ const Sound = (() => {
 
     const total = tasksArr.length;
     const done = tasksArr.filter(t => t.status === 'done').length;
-    summary.textContent = total ? `${total} total · ${done} completed` : '';
+    if (summary) summary.textContent = total ? `${total} total · ${done} completed` : '';
   }
 
   columnEls.forEach(col => {
@@ -485,31 +512,33 @@ const Sound = (() => {
     });
   });
 
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    tasksArr.push({
-      id: nextId++,
-      text,
-      status: 'todo',
-      priority: priorityInput.value,
-      due: dueInput.value || null
+  if (form) {
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      tasksArr.push({
+        id: nextId++,
+        text,
+        status: 'todo',
+        priority: priorityInput.value,
+        due: dueInput.value || null
+      });
+      input.value = '';
+      dueInput.value = '';
+      priorityInput.value = 'medium';
+      Sound.click();
+      save();
+      render();
     });
-    input.value = '';
-    dueInput.value = '';
-    priorityInput.value = 'medium';
-    Sound.click();
-    save();
-    render();
-  });
+  }
 
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       Sound.click();
       tabButtons.forEach(b => b.setAttribute('aria-selected', 'false'));
       btn.setAttribute('aria-selected', 'true');
-      kanban.dataset.active = btn.dataset.status;
+      if (kanban) kanban.dataset.active = btn.dataset.status;
     });
   });
 
@@ -530,26 +559,26 @@ const Sound = (() => {
   if ('getBattery' in navigator){
     navigator.getBattery().then(b => {
       function update(){
-        battery.textContent = `${Math.round(b.level * 100)}%`;
-        charging.textContent = b.charging ? 'Yes' : 'No';
+        if (battery) battery.textContent = `${Math.round(b.level * 100)}%`;
+        if (charging) charging.textContent = b.charging ? 'Yes' : 'No';
       }
       update();
       b.addEventListener('levelchange', update);
       b.addEventListener('chargingchange', update);
     });
   } else {
-    battery.textContent = 'Not supported';
-    charging.textContent = '—';
+    if (battery) battery.textContent = 'Not supported';
+    if (charging) charging.textContent = '—';
   }
 
-  function updateOnline(){ online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
+  function updateOnline(){ if (online) online.textContent = navigator.onLine ? 'Online' : 'Offline'; }
   updateOnline();
   window.addEventListener('online', updateOnline);
   window.addEventListener('offline', updateOnline);
 
-  connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
-  resolution.textContent = `${window.screen.width}×${window.screen.height}`;
-  platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
+  if (connType) connType.textContent = navigator.connection?.effectiveType || 'Unavailable';
+  if (resolution) resolution.textContent = `${window.screen.width}×${window.screen.height}`;
+  if (platform) platform.textContent = navigator.platform || navigator.userAgentData?.platform || 'Unknown';
 })();
 
 /* =========================================================
@@ -582,29 +611,35 @@ let handsFreeEnabled = false;
 
   function setSound(on){
     Sound.setEnabled(on);
-    soundToggle.classList.toggle('on', on);
-    soundToggle.setAttribute('aria-pressed', on);
-    muteHeaderBtn.classList.toggle('active', on);
+    if (soundToggle) {
+      soundToggle.classList.toggle('on', on);
+      soundToggle.setAttribute('aria-pressed', on);
+    }
+    if (muteHeaderBtn) muteHeaderBtn.classList.toggle('active', on);
     if (on) Sound.click();
   }
   function setVoice(on){
     voiceReplyEnabled = on;
-    voiceToggle.classList.toggle('on', on);
-    voiceToggle.setAttribute('aria-pressed', on);
+    if (voiceToggle) {
+      voiceToggle.classList.toggle('on', on);
+      voiceToggle.setAttribute('aria-pressed', on);
+    }
     if (!on && handsFreeEnabled) setHandsFree(false);
   }
   function setHandsFree(on){
     handsFreeEnabled = on;
-    handsFreeToggle.classList.toggle('on', on);
-    handsFreeToggle.setAttribute('aria-pressed', on);
-    handsFreeHint.style.display = on ? 'block' : 'none';
+    if (handsFreeToggle) {
+      handsFreeToggle.classList.toggle('on', on);
+      handsFreeToggle.setAttribute('aria-pressed', on);
+    }
+    if (handsFreeHint) handsFreeHint.style.display = on ? 'block' : 'none';
     if (on && !voiceReplyEnabled) setVoice(true);
   }
 
-  soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
-  muteHeaderBtn.addEventListener('click', () => setSound(!Sound.isEnabled()));
-  voiceToggle.addEventListener('click', () => setVoice(!voiceReplyEnabled));
-  handsFreeToggle.addEventListener('click', () => setHandsFree(!handsFreeEnabled));
+  if (soundToggle) soundToggle.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  if (muteHeaderBtn) muteHeaderBtn.addEventListener('click', () => setSound(!Sound.isEnabled()));
+  if (voiceToggle) voiceToggle.addEventListener('click', () => setVoice(!voiceReplyEnabled));
+  if (handsFreeToggle) handsFreeToggle.addEventListener('click', () => setHandsFree(!handsFreeEnabled));
 })();
 
 /* =========================================================
@@ -628,52 +663,57 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
   function refreshStatusUI(){
     if (apiKey){
-      chatHint.style.display = 'none';
-      sysApiStatus.textContent = 'Key saved in this browser';
+      if (chatHint) chatHint.style.display = 'none';
+      if (sysApiStatus) sysApiStatus.textContent = 'Key saved in this browser';
     } else {
-      chatHint.style.display = 'block';
-      sysApiStatus.textContent = 'Not set';
+      if (chatHint) chatHint.style.display = 'block';
+      if (sysApiStatus) sysApiStatus.textContent = 'Not set';
     }
   }
 
-  function open(){ modal.classList.add('open'); input.value = apiKey; input.focus(); }
-  function close(){ modal.classList.remove('open'); }
+  function open(){ if (modal) { modal.classList.add('open'); input.value = apiKey; input.focus(); } }
+  function close(){ if (modal) modal.classList.remove('open'); }
 
   openBtns.forEach(btn => btn && btn.addEventListener('click', open));
-  cancelBtn.addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', close);
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) close(); });
 
-  saveBtn.addEventListener('click', () => {
-    apiKey = input.value.trim();
-    Sound.click();
-    if (apiKey){
-      localStorage.setItem(GEMINI_KEY_STORAGE, apiKey);
-    } else {
-      localStorage.removeItem(GEMINI_KEY_STORAGE);
-    }
-    refreshStatusUI();
-    close();
-  });
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      apiKey = input.value.trim();
+      Sound.click();
+      if (apiKey){
+        localStorage.setItem(GEMINI_KEY_STORAGE, apiKey);
+      } else {
+        localStorage.removeItem(GEMINI_KEY_STORAGE);
+      }
+      refreshStatusUI();
+      close();
+    });
+  }
 
   refreshStatusUI();
 })();
 
 /* =========================================================
-   12. COMMS PANEL — Chat + Speech Recognition + Local Command Parsing
+   12. COMMS PANEL — Chat + Speech Recognition + Speech Synthesis
    ========================================================= */
+let speakText = function(text){};
+
 (function comms(){
   const chatLog = document.getElementById('chat-log');
   const chatEmpty = document.getElementById('chat-empty');
   const form = document.getElementById('command-form');
-  const input = document.getElementById('command-input');
-  const micBtn = document.getElementById('mic-btn');
+  const commsInput = document.getElementById('comms-input');
+  const commsMicBtn = document.getElementById('comms-mic-btn');
   const hudCore = document.getElementById('hud-core');
   const hudStatus = document.getElementById('hud-status');
 
   let history = [];
 
   function addMessage(who, text){
-    chatEmpty.style.display = 'none';
+    if (chatEmpty) chatEmpty.style.display = 'none';
+    if (!chatLog) return;
     const div = document.createElement('div');
     div.className = `msg ${who}`;
     const label = who === 'user' ? 'YOU' : who === 'jarvis' ? 'JARVIS' : 'SYSTEM';
@@ -684,12 +724,15 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   }
 
   function setHudState(state){
+    if (!hudCore) return;
     hudCore.classList.remove('listening', 'thinking', 'speaking');
     if (state) hudCore.classList.add(state);
-    hudStatus.textContent = state === 'listening' ? 'LISTENING'
-      : state === 'thinking' ? 'THINKING'
-      : state === 'speaking' ? 'RESPONDING'
-      : 'READY';
+    if (hudStatus) {
+      hudStatus.textContent = state === 'listening' ? 'LISTENING'
+        : state === 'thinking' ? 'THINKING'
+        : state === 'speaking' ? 'RESPONDING'
+        : 'READY';
+    }
   }
 
   async function sendToGemini(userText){
@@ -725,7 +768,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       addMessage('jarvis', reply);
       Sound.receive();
       if (voiceReplyEnabled){
-        speak(reply);
+        speakText(reply);
       } else {
         setHudState('speaking');
         setTimeout(() => setHudState(null), 1000);
@@ -737,26 +780,29 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    addMessage('user', text);
-    Sound.send();
-    input.value = '';
+  if (form) {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!commsInput) return;
+      const text = commsInput.value.trim();
+      if (!text) return;
+      addMessage('user', text);
+      Sound.send();
+      commsInput.value = '';
 
-    if (window.processFileCommand) {
-      const localResult = await window.processFileCommand(text);
-      if (localResult) {
-        addMessage('jarvis', localResult);
-        if (typeof window.renderFileTree === 'function') window.renderFileTree();
-        if (voiceReplyEnabled) speak(localResult);
-        return;
+      if (window.processFileCommand) {
+        const localResult = await window.processFileCommand(text);
+        if (localResult) {
+          addMessage('jarvis', localResult);
+          if (typeof window.renderFileTree === 'function') window.renderFileTree();
+          if (voiceReplyEnabled) speakText(localResult);
+          return;
+        }
       }
-    }
 
-    sendToGemini(text);
-  });
+      sendToGemini(text);
+    });
+  }
 
   /* ---- Voice input (Web Speech API) ---- */
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -764,7 +810,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
   let recognizer = null;
   let userStoppedMic = false;
 
-  if (SpeechRecognition){
+  if (SpeechRecognition && commsMicBtn){
     recognizer = new SpeechRecognition();
     recognizer.continuous = false;
     recognizer.interimResults = false;
@@ -772,26 +818,26 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
     recognizer.addEventListener('start', () => {
       recognizing = true;
-      micBtn.classList.add('recording');
+      commsMicBtn.classList.add('recording');
       setHudState('listening');
     });
     recognizer.addEventListener('end', () => {
       recognizing = false;
-      micBtn.classList.remove('recording');
+      commsMicBtn.classList.remove('recording');
       setHudState(null);
     });
     recognizer.addEventListener('result', e => {
       const transcript = e.results[0][0].transcript;
-      input.value = transcript;
-      form.requestSubmit();
+      if (commsInput) commsInput.value = transcript;
+      if (form) form.requestSubmit();
     });
     recognizer.addEventListener('error', () => {
       recognizing = false;
-      micBtn.classList.remove('recording');
+      commsMicBtn.classList.remove('recording');
       setHudState(null);
     });
 
-    micBtn.addEventListener('click', () => {
+    commsMicBtn.addEventListener('click', () => {
       if (recognizing){
         userStoppedMic = true;
         recognizer.stop();
@@ -801,18 +847,31 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       userStoppedMic = false;
       recognizer.start();
     });
-  } else {
-    micBtn.disabled = true;
-    micBtn.title = 'Voice input not supported in this browser';
+  } else if (commsMicBtn) {
+    commsMicBtn.disabled = true;
+    commsMicBtn.title = 'Voice input not supported in this browser';
   }
 
-  /* ---- Voice output (Speech Synthesis) ---- */
-  function speak(text){
+  /* ---- Voice output (Speech Synthesis) with Fluid Masculine Profile ---- */
+  speakText = function(text){
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
-    utter.rate = 1.02;
-    utter.pitch = 0.9;
+    utter.rate = 1.0;
+    utter.pitch = 0.85; // Lower pitch for a masculine tone
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.lang.startsWith('en') && (
+        v.name.includes('David') || 
+        v.name.includes('Male') || 
+        v.name.includes('George') || 
+        v.name.includes('Natural') || 
+        v.name.includes('Google UK English Male')
+      )
+    );
+    if (preferredVoice) utter.voice = preferredVoice;
+
     utter.onstart = () => setHudState('speaking');
     utter.onend = () => {
       setHudState(null);
@@ -821,11 +880,287 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       }
     };
     window.speechSynthesis.speak(utter);
+  };
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
   }
 })();
 
 /* =========================================================
-   13. BROWSER VIRTUAL FILE SYSTEM (IndexedDB Storage)
+   13. MOVABLE DASHBOARD WIDGETS (Drag & Drop)
+   ========================================================= */
+(function dashboardWidgets(){
+  const widgets = document.querySelectorAll('.widget');
+
+  widgets.forEach(widget => {
+    const id = widget.id;
+    if (!id) return;
+
+    const savedPos = localStorage.getItem(`widget_pos_${id}`);
+    if (savedPos) {
+      try {
+        const { left, top } = JSON.parse(savedPos);
+        widget.style.position = 'absolute';
+        widget.style.left = left;
+        widget.style.top = top;
+      } catch(e) {}
+    }
+
+    widget.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.effectAllowed = 'move';
+      widget.classList.add('dragging-widget');
+    });
+
+    widget.addEventListener('dragend', (e) => {
+      widget.classList.remove('dragging-widget');
+      const parentRect = widget.parentElement.getBoundingClientRect();
+      const left = `${e.clientX - parentRect.left - 50}px`;
+      const top = `${e.clientY - parentRect.top - 20}px`;
+      
+      widget.style.position = 'absolute';
+      widget.style.left = left;
+      widget.style.top = top;
+
+      localStorage.setItem(`widget_pos_${id}`, JSON.stringify({ left, top }));
+    });
+  });
+})();
+
+/* =========================================================
+   14. COMMAND WORKSPACE WIDGET
+   ========================================================= */
+(function workspaceWidget(){
+  const log = document.getElementById('output-log');
+  const input = document.getElementById('command-input');
+  const sendBtn = document.getElementById('send-btn');
+  const micBtn = document.getElementById('mic-btn');
+
+  function appendLog(text, type = 'info') {
+    if (!log) return;
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `> ${text}`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function executeCommand(cmdText) {
+    if (!cmdText.trim()) return;
+    appendLog(cmdText, 'user-cmd');
+    Sound.send();
+
+    if (window.processFileCommand) {
+      const res = await window.processFileCommand(cmdText);
+      if (res) {
+        appendLog(res, 'success');
+        if (typeof window.renderFileTree === 'function') window.renderFileTree();
+        if (voiceReplyEnabled) speakText(res);
+        return;
+      }
+    }
+
+    appendLog(`Command non-local: Forwarding to system parser...`, 'sys-msg');
+  }
+
+  if (sendBtn && input) {
+    sendBtn.addEventListener('click', () => {
+      executeCommand(input.value);
+      input.value = '';
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        executeCommand(input.value);
+        input.value = '';
+      }
+    });
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRecognition && micBtn) {
+    const recog = new SpeechRecognition();
+    recog.lang = 'en-US';
+
+    recog.onstart = () => micBtn.classList.add('recording');
+    recog.onend = () => micBtn.classList.remove('recording');
+    recog.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      if (input) input.value = text;
+      executeCommand(text);
+      if (input) input.value = '';
+    };
+
+    micBtn.addEventListener('click', () => {
+      Sound.click();
+      recog.start();
+    });
+  }
+})();
+
+/* =========================================================
+   15. DAILY SCRATCHPAD WIDGET
+   ========================================================= */
+(function scratchpadWidget(){
+  const textarea = document.getElementById('scratchpad-text');
+  const STORAGE_KEY = 'jarvis-scratchpad-data';
+
+  if (!textarea) return;
+
+  textarea.value = localStorage.getItem(STORAGE_KEY) || '';
+
+  textarea.addEventListener('input', () => {
+    localStorage.setItem(STORAGE_KEY, textarea.value);
+  });
+})();
+
+/* =========================================================
+   16. POMODORO TIMER WIDGET
+   ========================================================= */
+(function pomodoroWidget(){
+  const display = document.getElementById('pomodoro-display');
+  const startBtn = document.getElementById('pomo-start-btn');
+  const pauseBtn = document.getElementById('pomo-pause-btn');
+  const resetBtn = document.getElementById('pomo-reset-btn');
+
+  let timer = null;
+  let timeLeft = 25 * 60; // 25 minutes
+
+  function updateDisplay() {
+    if (!display) return;
+    const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+    const secs = String(timeLeft % 60).padStart(2, '0');
+    display.textContent = `${mins}:${secs}`;
+  }
+
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      Sound.click();
+      if (timer) return;
+      timer = setInterval(() => {
+        if (timeLeft > 0) {
+          timeLeft--;
+          updateDisplay();
+        } else {
+          clearInterval(timer);
+          timer = null;
+          Sound.bootComplete();
+          alert('Pomodoro session completed, sir.');
+        }
+      }, 1000);
+    });
+  }
+
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+      Sound.click();
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      Sound.click();
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      timeLeft = 25 * 60;
+      updateDisplay();
+    });
+  }
+
+  updateDisplay();
+})();
+
+/* =========================================================
+   17. AMBIENT AUDIO PLAYER WIDGET
+   ========================================================= */
+(function ambientAudioWidget(){
+  const buttons = document.querySelectorAll('.sound-btn');
+  const volumeControl = document.getElementById('ambient-volume');
+  let audioCtx = null;
+  let activeNodes = [];
+  let currentSound = null;
+
+  function initAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function stopAmbient() {
+    activeNodes.forEach(node => {
+      try { node.stop(); } catch(e){}
+      try { node.disconnect(); } catch(e){}
+    });
+    activeNodes = [];
+    currentSound = null;
+    buttons.forEach(b => b.classList.remove('active'));
+  }
+
+  function playWhiteNoise(vol) {
+    initAudioCtx();
+    stopAmbient();
+
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const whiteNoise = audioCtx.createBufferSource();
+    whiteNoise.buffer = buffer;
+    whiteNoise.loop = true;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = vol * 0.15;
+
+    whiteNoise.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    whiteNoise.start();
+
+    activeNodes.push(whiteNoise);
+    return gainNode;
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      Sound.click();
+      const soundType = btn.dataset.sound;
+
+      if (currentSound === soundType) {
+        stopAmbient();
+        return;
+      }
+
+      stopAmbient();
+      currentSound = soundType;
+      btn.classList.add('active');
+
+      const vol = volumeControl ? parseFloat(volumeControl.value) : 0.5;
+      playWhiteNoise(vol);
+    });
+  });
+
+  if (volumeControl) {
+    volumeControl.addEventListener('input', (e) => {
+      const vol = parseFloat(e.target.value);
+      if (currentSound) {
+        playWhiteNoise(vol);
+      }
+    });
+  }
+})();
+
+/* =========================================================
+   18. BROWSER VIRTUAL FILE SYSTEM (IndexedDB Storage)
    ========================================================= */
 (function virtualFS() {
   const DB_NAME = 'JarvisVirtualFS';
@@ -883,7 +1218,7 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
     const items = await getAllItems();
     if (items.length === 0) {
-      container.innerHTML = '<p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS to create one, sir.</p>';
+      container.innerHTML = '<p class="empty-msg">No folders or projects created yet. Ask JARVIS in COMMS or the Command Workspace to create one, sir.</p>';
       return;
     }
 
@@ -902,19 +1237,25 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     container.appendChild(list);
   };
 
-  async function createVirtualItem(name, isProject = false) {
-    const folderPath = isProject ? `Projects/${name}` : `Folders/${name}`;
-    
-    try {
-      await saveItem(folderPath, 'folder');
+  async function createVirtualItem(name, isProject = false, isFile = false) {
+    let itemPath = isProject ? `Projects/${name}` : `Folders/${name}`;
+    if (isFile) itemPath = `Files/${name}`;
 
-      if (isProject) {
-        await saveItem(`${folderPath}/index.html`, 'file', '<!DOCTYPE html>\n<html>\n<head><title>' + name + '</title></head>\n<body></body>\n</html>');
-        await saveItem(`${folderPath}/style.css`, 'file', '/* Styles for ' + name + ' */');
-        await saveItem(`${folderPath}/app.js`, 'file', '// Scripts for ' + name);
+    try {
+      if (isFile) {
+        await saveItem(itemPath, 'file', `/* File: ${name} */`);
+      } else {
+        await saveItem(itemPath, 'folder');
+        if (isProject) {
+          await saveItem(`${itemPath}/index.html`, 'file', '<!DOCTYPE html>\n<html>\n<head><title>' + name + '</title></head>\n<body></body>\n</html>');
+          await saveItem(`${itemPath}/style.css`, 'file', '/* Styles for ' + name + ' */');
+          await saveItem(`${itemPath}/app.js`, 'file', '// Scripts for ' + name);
+        }
       }
 
       if (typeof Sound !== 'undefined') Sound.taskDone();
+      
+      if (isFile) return `File '${name}' created and saved in browser storage, sir.`;
       return isProject 
         ? `Project '${name}' created and saved in browser storage with standard web files, sir.`
         : `Folder '${name}' created and saved in browser storage, sir.`;
@@ -926,17 +1267,18 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
 
   window.processFileCommand = async function (userText) {
     const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
-    const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
+    const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project|file)\s+(?:named\s+|called\s+)?([a-z0-9_\-\.]+)/i);
 
     if (match) {
-      const type = match[1];
-      const name = match[2].trim().replace(/\s+/g, '-');
+      const type = match[1].toLowerCase();
+      const name = match[2];
       const isProject = type === 'project';
-      return await createVirtualItem(name, isProject);
+      const isFile = type === 'file';
+      return await createVirtualItem(name, isProject, isFile);
     }
 
     return null;
   };
 
-  initDB();
+  initDB().catch(console.error);
 })();
