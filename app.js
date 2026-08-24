@@ -91,17 +91,12 @@ const Sound = (() => {
 
 /* =========================================================
    3. CIRCUIT BOARD FIELD
-   A generated network of PCB-style traces — right-angle paths
-   with junction pads, laid out on the same grid as the CSS
-   background — with small glowing signals traveling along
-   them, like current pulsing through a real circuit board.
-   Colors track the active theme automatically.
    ========================================================= */
 (function circuitBoard(){
   const canvas = document.getElementById('particle-field');
   if (reducedMotion){ canvas.remove(); return; }
   const ctx = canvas.getContext('2d');
-  const GRID = 48; // must match body background-size in style.css
+  const GRID = 48;
   let w, h, traces, signals;
 
   function themeColor(varName, fallback){
@@ -109,7 +104,6 @@ const Sound = (() => {
     return v || fallback;
   }
 
-  // ---- Build a network of right-angle trace paths (like copper traces) ----
   function buildTraces(){
     const cols = Math.max(4, Math.floor(w / GRID));
     const rows = Math.max(4, Math.floor(h / GRID));
@@ -121,10 +115,10 @@ const Sound = (() => {
       let y = Math.floor(Math.random() * rows) * GRID;
       const points = [{ x, y }];
       let horizontal = Math.random() < 0.5;
-      const segments = 3 + Math.floor(Math.random() * 4); // 3–6 turns per trace
+      const segments = 3 + Math.floor(Math.random() * 4);
 
       for (let s = 0; s < segments; s++){
-        const runCells = 1 + Math.floor(Math.random() * 3); // 1–3 grid cells per run
+        const runCells = 1 + Math.floor(Math.random() * 3);
         const dir = Math.random() < 0.5 ? 1 : -1;
         if (horizontal){
           x = Math.min(cols * GRID, Math.max(0, x + dir * runCells * GRID));
@@ -132,10 +126,9 @@ const Sound = (() => {
           y = Math.min(rows * GRID, Math.max(0, y + dir * runCells * GRID));
         }
         points.push({ x, y });
-        horizontal = !horizontal; // right-angle turn each segment
+        horizontal = !horizontal;
       }
 
-      // precompute segment lengths + total length for signal interpolation
       let total = 0;
       const segLens = [];
       for (let p = 1; p < points.length; p++){
@@ -148,7 +141,6 @@ const Sound = (() => {
     return list;
   }
 
-  // Position along a trace at progress t (0–1), used to draw signal pulses
   function pointAtProgress(trace, t){
     let dist = Math.max(0, Math.min(1, t)) * trace.total;
     for (let i = 0; i < trace.segLens.length; i++){
@@ -166,7 +158,7 @@ const Sound = (() => {
   function spawnSignal(){
     return {
       traceIndex: Math.floor(Math.random() * traces.length),
-      t: Math.random() * -0.4, // stagger start so they don't all pulse in sync
+      t: Math.random() * -0.4,
       speed: 0.0025 + Math.random() * 0.004,
       color: Math.random() < 0.72 ? themeColor('--accent', '#4fd8e6') : themeColor('--warn', '#e6a04f')
     };
@@ -193,7 +185,6 @@ const Sound = (() => {
       trace.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
       ctx.stroke();
 
-      // small solder-pad rings at every joint/junction
       ctx.fillStyle = traceColor;
       trace.points.forEach(p => {
         ctx.beginPath();
@@ -208,7 +199,7 @@ const Sound = (() => {
     signals.forEach(sig => {
       sig.t += sig.speed;
       if (sig.t > 1.15){ Object.assign(sig, spawnSignal()); return; }
-      if (sig.t < 0) return; // still in its staggered delay
+      if (sig.t < 0) return;
 
       const trace = traces[sig.traceIndex];
       const head = pointAtProgress(trace, sig.t);
@@ -264,7 +255,6 @@ const Sound = (() => {
       const targetPanel = document.getElementById(`panel-${btn.dataset.tab}`);
       if (targetPanel) targetPanel.classList.add('active');
 
-      // Refresh Virtual FS when Workplace tab is opened
       if (btn.dataset.tab === 'workplace' && typeof window.renderFileTree === 'function') {
         window.renderFileTree();
       }
@@ -737,7 +727,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
       if (voiceReplyEnabled){
         speak(reply);
       } else {
-        // No voice output — still give a brief visual reaction to the reply
         setHudState('speaking');
         setTimeout(() => setHudState(null), 1000);
       }
@@ -756,14 +745,13 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     Sound.send();
     input.value = '';
 
-    // Interception par le processeur de commandes locales (Workplace VFS)
     if (window.processFileCommand) {
       const localResult = await window.processFileCommand(text);
       if (localResult) {
         addMessage('jarvis', localResult);
         if (typeof window.renderFileTree === 'function') window.renderFileTree();
         if (voiceReplyEnabled) speak(localResult);
-        return; // Interrompt l'envoi vers Gemini si une commande locale est exécutée
+        return;
       }
     }
 
@@ -936,7 +924,6 @@ let apiKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
     }
   }
 
-  // Parser vocale et texte optimisé (Nettoyage de la ponctuation automatique du micro)
   window.processFileCommand = async function (userText) {
     const text = userText.toLowerCase().trim().replace(/[.!?]+$/, '');
     const match = text.match(/(?:create|make|build|add)\s+(?:a\s+)?(?:new\s+)?(folder|project)\s+(?:called|named\s+)?([a-z0-9_\-\s]+)/i);
