@@ -101,7 +101,7 @@
     <!-- Movable Widgets Suite -->
     <div class="widget-layer">
       <!-- Digital Clock Widget -->
-      <div class="widget clock-widget" id="clock-widget">
+      <div class="widget clock-widget" id="clock-widget" draggable="true">
         <div class="clock-display">
           <span id="digital-clock-time">00:00:00</span>
           <span id="clock-ampm">AM</span>
@@ -109,8 +109,23 @@
         <div class="clock-date" id="digital-clock-date">LOADING DATE...</div>
       </div>
 
+      <!-- Command Workspace Widget -->
+      <div class="widget workspace-widget" id="workspace-panel" draggable="true">
+        <div class="widget-header">
+          <h3><i class="fa-solid fa-terminal"></i> Command Workspace</h3>
+        </div>
+        <div class="widget-body">
+          <div id="output-log" class="log-container">System Ready.</div>
+          <div class="input-group">
+            <input type="text" id="command-input" placeholder="Type a command (e.g., 'create file notes.txt')...">
+            <button id="mic-btn" title="Voice Command"><i class="fa-solid fa-microphone"></i></button>
+            <button id="send-btn" title="Send Command"><i class="fa-solid fa-paper-plane"></i></button>
+          </div>
+        </div>
+      </div>
+
       <!-- Daily Scratchpad Widget -->
-      <div class="widget scratchpad-widget" id="scratchpad-widget">
+      <div class="widget scratchpad-widget" id="scratchpad-widget" draggable="true">
         <div class="widget-header">
           <h3><i class="fas fa-sticky-note"></i> Daily Scratchpad</h3>
         </div>
@@ -120,7 +135,7 @@
       </div>
 
       <!-- Pomodoro Timer Widget -->
-      <div class="widget pomodoro-widget" id="pomodoro-widget">
+      <div class="widget pomodoro-widget" id="pomodoro-widget" draggable="true">
         <div class="widget-header">
           <h3><i class="fas fa-stopwatch"></i> Pomodoro Timer</h3>
         </div>
@@ -135,7 +150,7 @@
       </div>
 
       <!-- Ambient Sound Player Widget -->
-      <div class="widget ambient-widget" id="ambient-widget">
+      <div class="widget ambient-widget" id="ambient-widget" draggable="true">
         <div class="widget-header">
           <h3><i class="fas fa-headphones"></i> Ambient Audio</h3>
         </div>
@@ -171,8 +186,8 @@
     <div class="command-bar">
       <form id="command-form">
         <span class="prompt-glyph">&gt;</span>
-        <input id="command-input" type="text" placeholder="Type a command…" autocomplete="off">
-        <button type="button" class="mic-btn" id="mic-btn" title="Voice input">
+        <input id="comms-input" type="text" placeholder="Type a command…" autocomplete="off">
+        <button type="button" class="mic-btn" id="comms-mic-btn" title="Voice input">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
         </button>
         <button type="submit">Send</button>
