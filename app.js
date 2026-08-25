@@ -22,25 +22,26 @@ document.addEventListener('DOMContentLoaded', () => {
   initWorkplaceTerminal();
   initSpeechSynthesis();
   initAmbientSound();
+  initConnections();
+  initCommandPalette();
 });
 
 // ---------------------------------------------------------
-// HUD reactive state — shared by comms, mic, and the blob canvas
+// HUD reactive state — shared by comms, mic, and the blob canvas.
+// Updates EVERY .hud-core instance on the page at once (the main
+// Dashboard core and the compact Comms indicator stay in sync).
 // ---------------------------------------------------------
 function setHudState(state) {
-  const hudCore = document.getElementById('hud-core');
-  const statusText = document.getElementById('hud-status-text');
-  if (hudCore) {
+  document.querySelectorAll('.hud-core').forEach(hudCore => {
     hudCore.classList.remove('listening', 'thinking', 'speaking');
     if (state) hudCore.classList.add(state);
-  }
+  });
   window.jarvisHudState = state || 'idle';
-  if (statusText) {
-    statusText.textContent = state === 'listening' ? 'LISTENING'
-      : state === 'thinking' ? 'THINKING'
-      : state === 'speaking' ? 'RESPONDING'
-      : 'READY';
-  }
+  const label = state === 'listening' ? 'LISTENING'
+    : state === 'thinking' ? 'THINKING'
+    : state === 'speaking' ? 'RESPONDING'
+    : 'READY';
+  document.querySelectorAll('.hud-status-value').forEach(el => { el.textContent = label; });
 }
 
 // ---------------------------------------------------------
@@ -406,79 +407,77 @@ function initWeather() {
 //    and the current HUD state (idle/listening/thinking/speaking)
 // ---------------------------------------------------------
 function initInteractiveBlob() {
-  const canvas = document.getElementById('blob-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const hudCore = document.getElementById('hud-core');
+  document.querySelectorAll('.hud-core').forEach(hudCore => {
+    const canvas = hudCore.querySelector('.blob-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-  let time = 0;
-  let mouseX = canvas.width / 2;
-  let mouseY = canvas.height / 2;
+    let time = Math.random() * 10; // desync multiple instances slightly
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
 
-  if (hudCore) {
     hudCore.addEventListener('mousemove', (e) => {
       const rect = hudCore.getBoundingClientRect();
       mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
       mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
     });
-  }
 
-  function getHudColor() {
-    if (!hudCore) return '#4fd8e6';
-    const val = getComputedStyle(hudCore).getPropertyValue('--hud-c').trim();
-    return val || '#4fd8e6';
-  }
-
-  function drawBlob() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    let amplitude = 6, freqMul = 1;
-    switch (window.jarvisHudState) {
-      case 'listening': amplitude = 10; freqMul = 1.8; break;
-      case 'thinking': amplitude = 14; freqMul = 2.4; break;
-      case 'speaking': amplitude = 9; freqMul = 1.5; break;
-      default: amplitude = 6; freqMul = 1;
+    function getHudColor() {
+      const val = getComputedStyle(hudCore).getPropertyValue('--hud-c').trim();
+      return val || '#4fd8e6';
     }
-    time += 0.04 * freqMul;
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const baseRadius = 55;
-    const points = 12;
-    const color = getHudColor();
+    function drawBlob() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.beginPath();
-    for (let i = 0; i <= points; i++) {
-      const angle = (i / points) * Math.PI * 2;
-      const dx = mouseX - centerX;
-      const dy = mouseY - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const pull = Math.max(0, (80 - dist) / 80) * 12;
+      let amplitude = 6, freqMul = 1;
+      switch (window.jarvisHudState) {
+        case 'listening': amplitude = 10; freqMul = 1.8; break;
+        case 'thinking': amplitude = 14; freqMul = 2.4; break;
+        case 'speaking': amplitude = 9; freqMul = 1.5; break;
+        default: amplitude = 6; freqMul = 1;
+      }
+      time += 0.04 * freqMul;
 
-      const offset = Math.sin(time + i * 1.5) * amplitude * 0.7 + Math.cos(time * 0.8 + i) * amplitude * 0.5 + pull;
-      const r = baseRadius + offset;
-      const x = centerX + Math.cos(angle) * r;
-      const y = centerY + Math.sin(angle) * r;
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const baseRadius = canvas.width * 0.25;
+      const points = 12;
+      const color = getHudColor();
 
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      ctx.beginPath();
+      for (let i = 0; i <= points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        const dx = mouseX - centerX;
+        const dy = mouseY - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const pull = Math.max(0, (80 - dist) / 80) * 12;
+
+        const offset = Math.sin(time + i * 1.5) * amplitude * 0.7 + Math.cos(time * 0.8 + i) * amplitude * 0.5 + pull;
+        const r = baseRadius + offset;
+        const x = centerX + Math.cos(angle) * r;
+        const y = centerY + Math.sin(angle) * r;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      const gradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, canvas.width * 0.32);
+      gradient.addColorStop(0, '#ffffff');
+      gradient.addColorStop(0.4, color);
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 20;
+      ctx.fill();
+
+      requestAnimationFrame(drawBlob);
     }
-    ctx.closePath();
 
-    const gradient = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, 70);
-    gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(0.4, color);
-    gradient.addColorStop(1, 'rgba(0,0,0,0)');
-
-    ctx.fillStyle = gradient;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 20;
-    ctx.fill();
-
-    requestAnimationFrame(drawBlob);
-  }
-
-  drawBlob();
+    drawBlob();
+  });
 }
 
 // ---------------------------------------------------------
@@ -505,35 +504,43 @@ function initDraggableWidgets() {
   const positions = loadWidgetPositions();
   const desktopQuery = window.matchMedia('(min-width: 880px)');
 
-  function updateGridHeight() {
-    let maxBottom = 0;
-    widgets.forEach(w => {
-      const bottom = w.offsetTop + w.offsetHeight;
-      if (bottom > maxBottom) maxBottom = bottom;
-    });
-    grid.style.minHeight = Math.max(320, maxBottom + 24) + 'px';
+  function clampToViewport(x, y, widgetEl) {
+    const margin = 8;
+    const maxX = window.innerWidth - widgetEl.offsetWidth - margin;
+    const maxY = window.innerHeight - 40; // leave the header grabbable near the bottom edge
+    return {
+      x: Math.max(margin, Math.min(x, Math.max(margin, maxX))),
+      y: Math.max(margin, Math.min(y, Math.max(margin, maxY)))
+    };
   }
 
   function enableFreeDrag() {
     grid.classList.add('free-drag');
-    const gridRect = grid.getBoundingClientRect();
     widgets.forEach(w => {
       const saved = positions[w.id];
+      let x, y;
       if (saved) {
-        w.style.left = saved.x + 'px';
-        w.style.top = saved.y + 'px';
+        x = saved.x; y = saved.y;
       } else {
+        // First time going free-form: keep wherever the normal grid flow
+        // had placed it, converted to viewport coordinates.
         const r = w.getBoundingClientRect();
-        w.style.left = Math.round(r.left - gridRect.left) + 'px';
-        w.style.top = Math.round(r.top - gridRect.top) + 'px';
+        x = r.left; y = r.top;
       }
+      w.style.left = x + 'px';
+      w.style.top = y + 'px';
+      // Pull back on-screen in case a saved position is now off-screen
+      // (e.g. the browser window got smaller since it was last saved).
+      requestAnimationFrame(() => {
+        const clamped = clampToViewport(x, y, w);
+        w.style.left = clamped.x + 'px';
+        w.style.top = clamped.y + 'px';
+      });
     });
-    updateGridHeight();
   }
 
   function disableFreeDrag() {
     grid.classList.remove('free-drag');
-    grid.style.minHeight = '';
     widgets.forEach(w => { w.style.left = ''; w.style.top = ''; });
   }
 
@@ -560,13 +567,9 @@ function initDraggableWidgets() {
       if (!dragging) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const gridRect = grid.getBoundingClientRect();
-      let newLeft = origLeft + dx;
-      let newTop = origTop + dy;
-      newLeft = Math.max(0, Math.min(newLeft, gridRect.width - w.offsetWidth));
-      newTop = Math.max(0, newTop);
-      w.style.left = newLeft + 'px';
-      w.style.top = newTop + 'px';
+      const clamped = clampToViewport(origLeft + dx, origTop + dy, w);
+      w.style.left = clamped.x + 'px';
+      w.style.top = clamped.y + 'px';
     });
 
     function endDrag() {
@@ -574,13 +577,25 @@ function initDraggableWidgets() {
       dragging = false;
       w.classList.remove('dragging-widget');
       saveWidgetPosition(w.id, parseFloat(w.style.left) || 0, parseFloat(w.style.top) || 0);
-      updateGridHeight();
     }
     handle.addEventListener('pointerup', endDrag);
     handle.addEventListener('pointercancel', endDrag);
   });
 
-  window.addEventListener('resize', () => { if (desktopQuery.matches) updateGridHeight(); });
+  // If the window is resized, gently pull any now off-screen widgets back in
+  window.addEventListener('resize', () => {
+    if (!desktopQuery.matches) return;
+    widgets.forEach(w => {
+      const x = parseFloat(w.style.left) || 0;
+      const y = parseFloat(w.style.top) || 0;
+      const clamped = clampToViewport(x, y, w);
+      if (clamped.x !== x || clamped.y !== y) {
+        w.style.left = clamped.x + 'px';
+        w.style.top = clamped.y + 'px';
+        saveWidgetPosition(w.id, clamped.x, clamped.y);
+      }
+    });
+  });
 }
 
 // ---------------------------------------------------------
@@ -1272,4 +1287,233 @@ function initAmbientSound() {
       }
     });
   }
+}
+
+// ---------------------------------------------------------
+// 16. Connections — a quick-launch hub for other sites/apps.
+//     Honesty note: this does NOT log in to anything or hold
+//     any real credentials. A static site has nowhere safe to
+//     keep OAuth secrets, so this simply opens saved links in
+//     a new tab — a personal shortcut panel, not integration.
+// ---------------------------------------------------------
+const CONNECTIONS_KEY = 'jarvis-connections';
+
+const CONNECTION_PRESETS = [
+  { name: 'Google', url: 'https://google.com' },
+  { name: 'Gmail', url: 'https://mail.google.com' },
+  { name: 'YouTube', url: 'https://youtube.com' },
+  { name: 'Instagram', url: 'https://instagram.com' },
+  { name: 'GitHub', url: 'https://github.com' },
+  { name: 'Spotify', url: 'https://open.spotify.com' }
+];
+
+// Deterministic color per name so each badge looks distinct but stable
+const BADGE_COLORS = ['#4fd8e6', '#e6a04f', '#e65f5f', '#6fcf97', '#a78bfa', '#f472b6'];
+function colorForName(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return BADGE_COLORS[hash % BADGE_COLORS.length];
+}
+
+function loadConnections() {
+  try {
+    const raw = localStorage.getItem(CONNECTIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveConnections(list) {
+  try { localStorage.setItem(CONNECTIONS_KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable */ }
+}
+
+function normalizeUrl(url) {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function renderConnections() {
+  const grid = document.getElementById('connections-grid');
+  const emptyEl = document.getElementById('connections-empty');
+  const presetsWrap = document.getElementById('connections-presets');
+  if (!grid) return;
+
+  const list = loadConnections();
+  grid.innerHTML = '';
+  if (emptyEl) emptyEl.style.display = list.length ? 'none' : 'block';
+
+  list.forEach((conn, index) => {
+    const tile = document.createElement('a');
+    tile.className = 'connection-tile';
+    tile.href = conn.url;
+    tile.target = '_blank';
+    tile.rel = 'noopener noreferrer';
+
+    const initial = (conn.name || '?').trim().charAt(0).toUpperCase() || '?';
+    tile.innerHTML = `
+      <span class="connection-badge" style="background:${colorForName(conn.name)}">${initial}</span>
+      <span class="connection-name"></span>
+      <button type="button" class="connection-del" aria-label="Remove ${conn.name}">✕</button>
+    `;
+    tile.querySelector('.connection-name').textContent = conn.name;
+
+    const delBtn = tile.querySelector('.connection-del');
+    delBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const current = loadConnections();
+      current.splice(index, 1);
+      saveConnections(current);
+      renderConnections();
+    });
+
+    grid.appendChild(tile);
+  });
+
+  // Grey out preset buttons already added, so it's clear at a glance
+  if (presetsWrap) {
+    const addedNames = list.map(c => c.name.toLowerCase());
+    presetsWrap.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.disabled = addedNames.includes(btn.dataset.name.toLowerCase());
+    });
+  }
+}
+
+function addConnection(name, url) {
+  const cleanUrl = normalizeUrl(url);
+  if (!name.trim() || !cleanUrl) return;
+  const list = loadConnections();
+  if (list.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) return; // no duplicates
+  list.push({ name: name.trim(), url: cleanUrl });
+  saveConnections(list);
+  renderConnections();
+}
+
+function initConnections() {
+  const presetsWrap = document.getElementById('connections-presets');
+  if (presetsWrap) {
+    CONNECTION_PRESETS.forEach(preset => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'preset-btn';
+      btn.dataset.name = preset.name;
+      btn.innerHTML = `<span>+</span> ${preset.name}`;
+      btn.addEventListener('click', () => addConnection(preset.name, preset.url));
+      presetsWrap.appendChild(btn);
+    });
+  }
+
+  const form = document.getElementById('connection-form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById('connection-name');
+      const urlInput = document.getElementById('connection-url');
+      addConnection(nameInput.value, urlInput.value);
+      nameInput.value = '';
+      urlInput.value = '';
+    });
+  }
+
+  renderConnections();
+}
+
+// ---------------------------------------------------------
+// 17. Command Palette — Ctrl+K / Cmd+K quick actions.
+//     A fast, JARVIS-appropriate way to jump anywhere or fire
+//     an action without hunting through tabs.
+// ---------------------------------------------------------
+function initCommandPalette() {
+  const overlay = document.getElementById('palette-overlay');
+  const input = document.getElementById('palette-input');
+  const list = document.getElementById('palette-list');
+  const triggerBtn = document.getElementById('palette-trigger');
+  if (!overlay || !input || !list) return;
+
+  let activeIndex = 0;
+  let filtered = [];
+
+  function getCommands() {
+    return [
+      { icon: '01', label: 'Go to Dashboard', hint: 'Tab', run: () => switchTab('panel-dashboard') },
+      { icon: '02', label: 'Go to Comms', hint: 'Tab', run: () => switchTab('panel-comms') },
+      { icon: '03', label: 'Go to Tasks', hint: 'Tab', run: () => switchTab('panel-tasks') },
+      { icon: '04', label: 'Go to Systems', hint: 'Tab', run: () => switchTab('panel-systems') },
+      { icon: '05', label: 'Go to Workplace', hint: 'Tab', run: () => switchTab('panel-workplace') },
+      { icon: '06', label: 'Go to Connections', hint: 'Tab', run: () => switchTab('panel-connections') },
+      { icon: '⚙', label: 'Open API key settings', hint: 'Modal', run: () => document.getElementById('btn-settings-toggle')?.click() },
+      { icon: '◐', label: 'Cycle interface theme', hint: 'Blue → Amber → Red', run: () => document.getElementById('btn-theme-toggle')?.click() },
+      { icon: '⏱', label: 'Start / pause focus cycle', hint: 'Pomodoro', run: () => document.getElementById('pomo-start')?.click() },
+      { icon: '🌧', label: 'Toggle rain sound', hint: 'Ambient', run: () => document.getElementById('btn-ambient-rain')?.click() },
+      { icon: '▓', label: 'Toggle white noise', hint: 'Ambient', run: () => document.getElementById('btn-ambient-white')?.click() },
+      { icon: '🔊', label: 'Test JARVIS voice', hint: 'Speech', run: () => document.getElementById('btn-test-voice')?.click() },
+      { icon: '+', label: 'Focus new task field', hint: 'Tasks', run: () => { switchTab('panel-tasks'); setTimeout(() => document.getElementById('task-input-text')?.focus(), 50); } },
+      { icon: '+', label: 'Focus scratchpad', hint: 'Dashboard', run: () => { switchTab('panel-dashboard'); setTimeout(() => document.getElementById('daily-scratchpad')?.focus(), 50); } }
+    ];
+  }
+
+  function switchTab(panelId) {
+    const btn = document.querySelector(`.tab-btn[data-panel="${panelId}"]`);
+    if (btn) btn.click();
+  }
+
+  function render() {
+    const query = input.value.trim().toLowerCase();
+    const all = getCommands();
+    filtered = query ? all.filter(c => c.label.toLowerCase().includes(query)) : all;
+    activeIndex = 0;
+
+    list.innerHTML = '';
+    if (!filtered.length) {
+      list.innerHTML = '<li class="palette-empty">No matching command, sir.</li>';
+      return;
+    }
+
+    filtered.forEach((cmd, i) => {
+      const li = document.createElement('li');
+      li.className = 'palette-item' + (i === activeIndex ? ' active-item' : '');
+      li.innerHTML = `<span class="palette-icon">${cmd.icon}</span><span>${cmd.label}</span><span class="palette-hint">${cmd.hint}</span>`;
+      li.addEventListener('click', () => runActive(i));
+      li.addEventListener('mouseenter', () => { activeIndex = i; highlightActive(); });
+      list.appendChild(li);
+    });
+  }
+
+  function highlightActive() {
+    Array.from(list.children).forEach((li, i) => li.classList.toggle('active-item', i === activeIndex));
+  }
+
+  function runActive(index) {
+    const cmd = filtered[index !== undefined ? index : activeIndex];
+    if (cmd) cmd.run();
+    closePalette();
+  }
+
+  function openPalette() {
+    overlay.classList.add('open');
+    input.value = '';
+    render();
+    setTimeout(() => input.focus(), 30);
+  }
+  function closePalette() {
+    overlay.classList.remove('open');
+  }
+
+  if (triggerBtn) triggerBtn.addEventListener('click', openPalette);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePalette(); });
+  input.addEventListener('input', render);
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, filtered.length - 1); highlightActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); highlightActive(); }
+    else if (e.key === 'Enter') { e.preventDefault(); runActive(); }
+    else if (e.key === 'Escape') { closePalette(); }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const isShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
+    if (isShortcut) {
+      e.preventDefault();
+      overlay.classList.contains('open') ? closePalette() : openPalette();
+    }
+  });
 }

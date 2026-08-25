@@ -53,13 +53,14 @@
       <button class="tab-btn" role="tab" data-panel="panel-tasks" aria-selected="false">TASKS</button>
       <button class="tab-btn" role="tab" data-panel="panel-systems" aria-selected="false">SYSTEMS</button>
       <button class="tab-btn" role="tab" data-panel="panel-workplace" aria-selected="false">WORKPLACE</button>
+      <button class="tab-btn" role="tab" data-panel="panel-connections" aria-selected="false">CONNECTIONS</button>
     </nav>
 
     <main>
 
       <!-- Panel 1: Dashboard -->
       <section id="panel-dashboard" class="panel active" role="tabpanel">
-        <div class="hud-core" id="hud-core">
+        <div class="hud-core" id="hud-core-main">
           <div class="hud-sphere orbit orbit-a"></div>
           <div class="hud-sphere orbit orbit-b">
             <span class="orbit-point p1"></span>
@@ -75,11 +76,11 @@
             <circle class="ring ring-sweep-slow" cx="100" cy="100" r="62" />
           </svg>
 
-          <canvas id="blob-canvas" width="220" height="220"></canvas>
+          <canvas class="blob-canvas" width="220" height="220"></canvas>
 
           <div class="core-center">
             <div class="label">STATUS</div>
-            <div class="value" id="hud-status-text">READY</div>
+            <div class="value hud-status-value">READY</div>
           </div>
         </div>
 
@@ -120,30 +121,76 @@
             </div>
           </div>
 
+          <div class="widget ambient-widget" id="widget-ambient">
+            <div class="widget-header"><span>Ambient Sound</span><span class="drag-handle">⋮⋮</span></div>
+            <p class="card-sub">Generated live — no files, works offline</p>
+            <div class="ambient-row">
+              <button class="widget-btn" id="btn-ambient-rain">🌧 RAIN</button>
+              <button class="widget-btn" id="btn-ambient-white">▓ WHITE NOISE</button>
+            </div>
+            <div class="setting-row">
+              <label for="ambient-volume">VOLUME</label>
+              <input type="range" id="ambient-volume" min="0" max="1" step="0.01" value="0.4">
+            </div>
+          </div>
+
         </div>
       </section>
 
       <!-- Panel 2: Comms Terminal -->
       <section id="panel-comms" class="panel" role="tabpanel">
-        <div class="chat-window">
-          <div class="chat-log" id="chat-log">
-            <div class="chat-empty" id="chat-empty">JARVIS active. Awaiting voice or textual input...</div>
-          </div>
-        </div>
+        <div class="comms-layout">
 
-        <div class="command-bar">
-          <form id="chat-form">
-            <span class="prompt-glyph">&gt;</span>
-            <input type="text" id="chat-input" placeholder="Type a command, e.g. 'create task publish report priority:high'..." autocomplete="off">
-            <button type="button" class="mic-btn" id="btn-mic">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              <span id="mic-text">MIC</span>
-            </button>
-            <button type="submit">TRANSMIT</button>
-          </form>
+          <div class="comms-hud">
+            <div class="hud-core compact" id="hud-core-comms">
+              <div class="hud-sphere orbit orbit-a"></div>
+              <div class="hud-sphere orbit orbit-b">
+                <span class="orbit-point p1"></span>
+                <span class="orbit-point p2"></span>
+                <span class="orbit-point p3"></span>
+              </div>
+              <div class="hud-sphere orbit orbit-c"></div>
+
+              <svg viewBox="0 0 200 200">
+                <circle class="ring ring-outer" cx="100" cy="100" r="92" />
+                <circle class="ring ring-tick" cx="100" cy="100" r="82" stroke-dasharray="2 6" />
+                <circle class="ring ring-sweep" cx="100" cy="100" r="72" stroke-dasharray="110 220" />
+                <circle class="ring ring-sweep-slow" cx="100" cy="100" r="62" />
+              </svg>
+
+              <canvas class="blob-canvas" width="220" height="220"></canvas>
+
+              <div class="core-center">
+                <div class="label">STATUS</div>
+                <div class="value hud-status-value">READY</div>
+              </div>
+            </div>
+            <p class="comms-hud-caption">Live response indicator</p>
+          </div>
+
+          <div class="comms-main">
+            <div class="chat-window">
+              <div class="chat-log" id="chat-log">
+                <div class="chat-empty" id="chat-empty">JARVIS active. Awaiting voice or textual input...</div>
+              </div>
+            </div>
+
+            <div class="command-bar">
+              <form id="chat-form">
+                <span class="prompt-glyph">&gt;</span>
+                <input type="text" id="chat-input" placeholder="Type a command, e.g. 'create task publish report priority:high'..." autocomplete="off">
+                <button type="button" class="mic-btn" id="btn-mic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                  <span id="mic-text">MIC</span>
+                </button>
+                <button type="submit">TRANSMIT</button>
+              </form>
+            </div>
+            <p class="chat-hint" id="chat-hint">No API key set — <button type="button" id="chat-hint-btn">add your Google AI Studio key</button> to enable live responses.</p>
+            <div class="chat-hint">Local commands still work without a key: "create task [title]", "create folder [name]", "create file [filename]"</div>
+          </div>
+
         </div>
-        <p class="chat-hint" id="chat-hint">No API key set — <button type="button" id="chat-hint-btn">add your Google AI Studio key</button> to enable live responses.</p>
-        <div class="chat-hint">Local commands still work without a key: "create task [title]", "create folder [name]", "create file [filename]"</div>
       </section>
 
       <!-- Panel 3: Tasks Kanban Board -->
@@ -215,19 +262,6 @@
           </div>
 
           <div class="systems-card">
-            <h3>Ambient Sound</h3>
-            <p class="card-sub">Generated live — no audio files, works offline</p>
-            <div class="ambient-row">
-              <button class="widget-btn" id="btn-ambient-rain">🌧 RAIN</button>
-              <button class="widget-btn" id="btn-ambient-white">▓ WHITE NOISE</button>
-            </div>
-            <div class="setting-row">
-              <label for="ambient-volume">VOLUME</label>
-              <input type="range" id="ambient-volume" min="0" max="1" step="0.01" value="0.4">
-            </div>
-          </div>
-
-          <div class="systems-card">
             <h3>Core Telemetry</h3>
             <div class="row"><span>Model Target</span><span>gemini-3.6-flash</span></div>
             <div class="row"><span>Voice Profile</span><span id="voice-name-label">Detecting…</span></div>
@@ -257,6 +291,28 @@
         </div>
       </section>
 
+      <!-- Panel 6: Connections — quick-launch hub for other sites/apps -->
+      <section id="panel-connections" class="panel" role="tabpanel">
+        <div class="tasks-wrap">
+          <h2>Linked Systems</h2>
+          <p class="card-sub" style="margin-bottom:16px;">
+            A quick-launch hub, sir — not a login integration. JARVIS opens these in a new tab; it does not
+            authenticate into your accounts (a static site can't safely hold real login credentials).
+          </p>
+
+          <div class="connections-presets" id="connections-presets"></div>
+
+          <form class="task-form" id="connection-form">
+            <input type="text" id="connection-name" placeholder="Service name (e.g. Notion)" required>
+            <input type="text" id="connection-url" placeholder="https://..." required>
+            <button type="submit">ADD LINK</button>
+          </form>
+
+          <div class="connections-grid" id="connections-grid"></div>
+          <p class="kanban-empty" id="connections-empty">No linked systems yet, sir. Add one above.</p>
+        </div>
+      </section>
+
     </main>
 
     <footer>
@@ -279,6 +335,19 @@
         <button class="secondary" id="btn-modal-close">CANCEL</button>
         <button class="primary" id="btn-modal-save">SAVE CONFIG</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Command Palette — press Ctrl+K / Cmd+K anywhere, or tap the ⌘ button -->
+  <button class="palette-trigger" id="palette-trigger" title="Command palette (Ctrl+K)">⌘</button>
+  <div class="modal-overlay palette-overlay" id="palette-overlay">
+    <div class="palette">
+      <div class="palette-input-row">
+        <span class="prompt-glyph">&gt;</span>
+        <input type="text" id="palette-input" placeholder="Search commands — jump to a tab, add a task, toggle a theme..." autocomplete="off">
+        <span class="palette-esc">ESC</span>
+      </div>
+      <ul class="palette-list" id="palette-list"></ul>
     </div>
   </div>
 
