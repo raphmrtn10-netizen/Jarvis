@@ -108,6 +108,7 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 }
 .icon-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
 .icon-btn:active { transform: scale(0.93); }
+.icon-btn.active { color: var(--accent); border-color: var(--accent-dim); box-shadow: var(--shadow-btn), 0 0 10px -2px var(--accent); }
 .icon-btn svg { width: 16px; height: 16px; }
 
 .welcome { text-align: center; font-family: var(--font-display); font-weight: 500; font-size: clamp(15px, 2.4vw, 24px); letter-spacing: 0.28em; text-transform: uppercase; color: var(--accent-soft); text-shadow: 0 0 10px rgba(191,228,255,0.5), 0 0 24px rgba(191,228,255,0.25); padding: 24px 16px 0; opacity: 0; animation: welcome-in 1.6s ease-out 0.2s forwards; }
@@ -505,3 +506,14 @@ footer { border-top: 1px solid var(--line); padding: 14px clamp(16px,4vw,48px); 
 .alert-item .alert-text { font-size: 13px; color: var(--text-hi); }
 .alert-item .alert-due { font-size: 11px; color: var(--danger); font-family: var(--font-mono); }
 .alert-empty { padding: 20px 16px; text-align: center; color: var(--text-lo); font-size: 12px; }
+
+/* ---------- Holographic cursor glow (Dashboard only) ---------- */
+#panel-dashboard { position: relative; }
+.cursor-glow {
+  position: absolute; width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  opacity: 0; pointer-events: none; z-index: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.4s ease, left 0.06s linear, top 0.06s linear;
+  filter: blur(14px);
+}

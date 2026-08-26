@@ -6,8 +6,56 @@ let selectedVoice = null;
 let draggedTaskId = null;
 window.jarvisHudState = 'idle';
 
+// ---------------------------------------------------------
+// Sound engine — short synthesized tones via Web Audio API.
+// No audio files needed, works offline, tiny footprint.
+// Browsers block audio until a user gesture; ensureContext()
+// silently no-ops until the first click/tap, which is normal.
+// ---------------------------------------------------------
+const Sound = (() => {
+  let ctx = null;
+  let enabled = true;
+
+  function ensureContext() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function tone(freq, duration, type = 'sine', gain = 0.05, delay = 0) {
+    if (!enabled) return;
+    try {
+      ensureContext();
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.value = 0;
+      osc.connect(g).connect(ctx.destination);
+      const t0 = ctx.currentTime + delay;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.05);
+    } catch (e) { /* audio unavailable — fail silently */ }
+  }
+
+  return {
+    setEnabled(v) { enabled = v; },
+    isEnabled() { return enabled; },
+    click() { tone(1200, 0.05, 'square', 0.03); },
+    send() { tone(880, 0.08, 'sine', 0.05); },
+    receive() { tone(660, 0.09, 'sine', 0.05); tone(990, 0.09, 'sine', 0.04, 0.08); },
+    bootComplete() { tone(440, 0.15, 'sine', 0.05); tone(880, 0.2, 'sine', 0.05, 0.12); },
+    taskDone() { tone(1046, 0.12, 'sine', 0.05); tone(1318, 0.14, 'sine', 0.04, 0.1); },
+    alert() { tone(330, 0.15, 'triangle', 0.05); tone(330, 0.15, 'triangle', 0.05, 0.22); },
+    error() { tone(220, 0.2, 'sawtooth', 0.04); }
+  };
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   initThemeAndModal();
+  initSoundToggle();
   initTaskBoard();        // must run before boot: completeBoot() reads `tasks` for the greeting
   initSpeechSynthesis();  // must run before boot: completeBoot() speaks via the picked voice
   initBootSequence();
@@ -16,10 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initClock();
   initWeather();
   initInteractiveBlob();
+  initCursorGlow();
   initDraggableWidgets();
   initScratchpad();
   initPomodoroTimer();
   initCommsFormAndSpeech();
+  initBriefingButton();
   initWorkplaceTerminal();
   initAmbientSound();
   initConnections();
@@ -58,12 +108,53 @@ function applyTheme(theme) {
   });
 }
 
+// ---------------------------------------------------------
+// Interface sound toggle (header speaker icon)
+// ---------------------------------------------------------
+function initSoundToggle() {
+  const btn = document.getElementById('btn-sound-toggle');
+  if (!btn) return;
+  const saved = localStorage.getItem('jarvis-sound-enabled');
+  const enabled = saved === null ? true : saved === 'true';
+  Sound.setEnabled(enabled);
+  btn.classList.toggle('active', enabled);
+
+  btn.addEventListener('click', () => {
+    const now = !Sound.isEnabled();
+    Sound.setEnabled(now);
+    btn.classList.toggle('active', now);
+    try { localStorage.setItem('jarvis-sound-enabled', String(now)); } catch (e) { /* storage unavailable */ }
+    if (now) Sound.click();
+  });
+}
+
+// ---------------------------------------------------------
+// Holographic cursor glow — a soft light that tracks the mouse
+// across the Dashboard, like a targeting reticle picking up
+// motion. Purely decorative, ignored entirely on touch devices.
+// ---------------------------------------------------------
+function initCursorGlow() {
+  const panel = document.getElementById('panel-dashboard');
+  const glow = document.getElementById('cursor-glow');
+  if (!panel || !glow) return;
+  if (window.matchMedia('(pointer: coarse)').matches) return; // skip on touch screens
+
+  panel.addEventListener('mousemove', (e) => {
+    const rect = panel.getBoundingClientRect();
+    glow.style.left = (e.clientX - rect.left) + 'px';
+    glow.style.top = (e.clientY - rect.top) + 'px';
+    glow.style.opacity = '1';
+  });
+  panel.addEventListener('mouseleave', () => { glow.style.opacity = '0'; });
+}
+
 function initThemeAndModal() {
   const savedTheme = localStorage.getItem(THEME_KEY) || 'blue';
   applyTheme(savedTheme);
 
   document.querySelectorAll('.swatch').forEach(swatch => {
     swatch.addEventListener('click', () => {
+      Sound.click();
       const theme = swatch.getAttribute('data-theme');
       applyTheme(theme);
       try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* storage unavailable */ }
@@ -74,6 +165,7 @@ function initThemeAndModal() {
   const cycleBtn = document.getElementById('btn-theme-toggle');
   if (cycleBtn) {
     cycleBtn.addEventListener('click', () => {
+      Sound.click();
       const current = document.documentElement.getAttribute('data-theme') || 'blue';
       const next = THEME_ORDER[(THEME_ORDER.indexOf(current) + 1) % THEME_ORDER.length];
       applyTheme(next);
@@ -152,6 +244,7 @@ function initBootSequence() {
     const greeting = overdueCount > 0
       ? `Jarvis online. Systems operational. You have ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''} requiring attention, Raphael.`
       : 'Jarvis online. Systems operational.';
+    Sound.bootComplete();
     speakResponse(greeting);
     setTimeout(() => { if (overlay) overlay.remove(); }, 700);
   }
@@ -188,6 +281,7 @@ function initTabNavigation() {
 
   btns.forEach(btn => {
     btn.addEventListener('click', () => {
+      Sound.click();
       const targetId = btn.getAttribute('data-panel');
       btns.forEach(b => b.setAttribute('aria-selected', 'false'));
       panels.forEach(p => p.classList.remove('active'));
@@ -670,6 +764,7 @@ function initPomodoroTimer() {
             clearInterval(timer);
             timer = null;
             startBtn.textContent = 'START';
+            Sound.taskDone();
             speakResponse('Focus cycle complete.');
           }
         }, 1000);
@@ -855,6 +950,7 @@ function renderTasks() {
 function moveTaskTo(task, newStatus) {
   if (task.status === newStatus) return;
   task.status = newStatus;
+  if (newStatus === 'done') Sound.taskDone(); else Sound.click();
   saveTasks();
   renderTasks();
 }
@@ -976,6 +1072,25 @@ function initTaskBoard() {
 // ---------------------------------------------------------
 let chatHistory = []; // Gemini format: { role: 'user'|'model', parts: [{ text }] }
 
+function goToTab(panelId) {
+  document.querySelector(`.tab-btn[data-panel="${panelId}"]`)?.click();
+}
+
+// Reveals JARVIS's replies a few characters at a time for a teletype/
+// terminal feel, instead of the text just appearing all at once.
+function typeIntoBubble(bubble, fullText, speed = 14) {
+  let i = 0;
+  const chunk = 2;
+  function tick() {
+    i = Math.min(fullText.length, i + chunk);
+    bubble.textContent = fullText.slice(0, i);
+    const log = document.getElementById('chat-log');
+    if (log) log.scrollTop = log.scrollHeight;
+    if (i < fullText.length) setTimeout(tick, speed);
+  }
+  tick();
+}
+
 function appendChatMessage(sender, text) {
   const log = document.getElementById('chat-log');
   if (!log) return;
@@ -986,9 +1101,59 @@ function appendChatMessage(sender, text) {
   div.className = `msg ${sender}`;
   const label = sender === 'user' ? 'RAPHAEL' : sender === 'jarvis' ? 'JARVIS' : 'SYSTEM';
   div.innerHTML = `<div class="who">${label}</div><div class="bubble"></div>`;
-  div.querySelector('.bubble').textContent = text;
+  const bubble = div.querySelector('.bubble');
   log.appendChild(div);
+
+  if (sender === 'jarvis') {
+    typeIntoBubble(bubble, text);
+  } else {
+    bubble.textContent = text;
+  }
   log.scrollTop = log.scrollHeight;
+}
+
+// ---------------------------------------------------------
+// Daily Briefing — a JARVIS-style situation report built from
+// data already on the page (time, weather, task board). Fully
+// local and offline — no API key required for this to work.
+// ---------------------------------------------------------
+function buildBriefingText() {
+  const now = new Date();
+  const hour = now.getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const weatherDesc = (document.getElementById('weather-desc')?.textContent || 'unavailable').toLowerCase();
+  const weatherTemp = document.getElementById('weather-temp')?.textContent || '--';
+
+  const todoCount = tasks.filter(t => t.status === 'todo').length;
+  const devCount = tasks.filter(t => t.status === 'developing').length;
+  const overdue = tasks.filter(t => t.status !== 'done' && t.due && isOverdue(t.due));
+
+  const parts = [];
+  parts.push(`${timeGreeting}, Raphael.`);
+  parts.push(`Current conditions: ${weatherTemp}, ${weatherDesc}.`);
+  parts.push(`You have ${todoCount} task${todoCount !== 1 ? 's' : ''} queued and ${devCount} in development.`);
+  if (overdue.length) {
+    const names = overdue.slice(0, 3).map(t => t.text).join(', ');
+    parts.push(`${overdue.length} item${overdue.length > 1 ? 's are' : ' is'} overdue: ${names}${overdue.length > 3 ? ', and others' : ''}.`);
+  } else {
+    parts.push('No overdue items. All caught up.');
+  }
+  parts.push('Systems nominal.');
+  return parts.join(' ');
+}
+
+function deliverBriefing() {
+  goToTab('panel-comms');
+  const briefing = buildBriefingText();
+  Sound.receive();
+  appendChatMessage('jarvis', briefing);
+  speakResponse(briefing);
+}
+
+function initBriefingButton() {
+  const btn = document.getElementById('btn-briefing');
+  if (btn) btn.addEventListener('click', deliverBriefing);
 }
 
 async function callGemini(userText) {
@@ -1024,16 +1189,27 @@ async function callGemini(userText) {
     const reply = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim() || '(Empty response)';
     chatHistory.push({ role: 'model', parts: [{ text: reply }] });
     setHudState(null);
+    Sound.receive();
     appendChatMessage('jarvis', reply);
     speakResponse(reply);
   } catch (err) {
     setHudState(null);
+    Sound.error();
     appendChatMessage('system', `Error: ${err.message}`);
   }
 }
 
 function handleUserMessage(rawInput) {
   const text = rawInput.toLowerCase();
+
+  // Local command: daily briefing
+  if (text.includes('brief') || text.includes('status report') || text.includes('daily report') || text.includes('sitrep')) {
+    const briefing = buildBriefingText();
+    Sound.receive();
+    appendChatMessage('jarvis', briefing);
+    speakResponse(briefing);
+    return;
+  }
 
   // Local command: create task
   if (text.includes('task') && (text.includes('creat') || text.includes('add'))) {
@@ -1046,6 +1222,7 @@ function handleUserMessage(rawInput) {
 
     addNewTask(title, priority);
     const reply = `Task "${title}" created and added to the Task Board, sir.`;
+    Sound.receive();
     appendChatMessage('jarvis', reply);
     speakResponse(reply);
     return;
@@ -1056,6 +1233,7 @@ function handleUserMessage(rawInput) {
     const name = rawInput.replace(/(creat\w*|mkdir)\s+folder\s+/i, '').trim() || 'New_Folder';
     executeWorkspaceCommand(`mkdir ${name}`);
     const reply = `Directory /${name} created in the Workplace files.`;
+    Sound.receive();
     appendChatMessage('jarvis', reply);
     speakResponse(reply);
     return;
@@ -1066,6 +1244,7 @@ function handleUserMessage(rawInput) {
     const name = rawInput.replace(/(creat\w*|touch)\s+file\s+/i, '').trim() || 'script.js';
     executeWorkspaceCommand(`touch ${name}`);
     const reply = `File ${name} created in the Workplace files.`;
+    Sound.receive();
     appendChatMessage('jarvis', reply);
     speakResponse(reply);
     return;
@@ -1086,6 +1265,7 @@ function initCommsFormAndSpeech() {
       e.preventDefault();
       const msg = input.value.trim();
       if (!msg) return;
+      Sound.send();
       appendChatMessage('user', msg);
       input.value = '';
       handleUserMessage(msg);
@@ -1531,6 +1711,7 @@ function addConnection(name, url) {
   if (list.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) return; // no duplicates
   list.push({ name: name.trim(), url: cleanUrl });
   saveConnections(list);
+  Sound.click();
   renderConnections();
 }
 
@@ -1592,6 +1773,8 @@ function initCommandPalette() {
       { icon: '🌧', label: 'Toggle rain sound', hint: 'Ambient', run: () => document.getElementById('btn-ambient-rain')?.click() },
       { icon: '▓', label: 'Toggle white noise', hint: 'Ambient', run: () => document.getElementById('btn-ambient-white')?.click() },
       { icon: '🔊', label: 'Test JARVIS voice', hint: 'Speech', run: () => document.getElementById('btn-test-voice')?.click() },
+      { icon: '🎙', label: 'Daily briefing', hint: 'Comms', run: () => deliverBriefing() },
+      { icon: '🔈', label: 'Toggle interface sound', hint: 'Header', run: () => document.getElementById('btn-sound-toggle')?.click() },
       { icon: '+', label: 'Focus new task field', hint: 'Tasks', run: () => { switchTab('panel-tasks'); setTimeout(() => document.getElementById('task-input-text')?.focus(), 50); } },
       { icon: '+', label: 'Focus scratchpad', hint: 'Dashboard', run: () => { switchTab('panel-dashboard'); setTimeout(() => document.getElementById('daily-scratchpad')?.focus(), 50); } }
     ];
@@ -1635,6 +1818,7 @@ function initCommandPalette() {
   }
 
   function openPalette() {
+    Sound.click();
     overlay.classList.add('open');
     input.value = '';
     render();
