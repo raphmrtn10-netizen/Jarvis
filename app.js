@@ -8,6 +8,8 @@ window.jarvisHudState = 'idle';
 
 document.addEventListener('DOMContentLoaded', () => {
   initThemeAndModal();
+  initTaskBoard();        // must run before boot: completeBoot() reads `tasks` for the greeting
+  initSpeechSynthesis();  // must run before boot: completeBoot() speaks via the picked voice
   initBootSequence();
   initTabNavigation();
   initCircuitBoard();
@@ -17,13 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initDraggableWidgets();
   initScratchpad();
   initPomodoroTimer();
-  initTaskBoard();
   initCommsFormAndSpeech();
   initWorkplaceTerminal();
-  initSpeechSynthesis();
   initAmbientSound();
   initConnections();
   initCommandPalette();
+  initAlertCenter();
 });
 
 // ---------------------------------------------------------
@@ -146,7 +147,12 @@ function initBootSequence() {
   function completeBoot() {
     if (overlay) overlay.classList.add('hidden');
     if (shell) shell.classList.add('revealed');
-    speakResponse('Jarvis online. Systems operational.');
+
+    const overdueCount = tasks.filter(t => t.status !== 'done' && t.due && isOverdue(t.due)).length;
+    const greeting = overdueCount > 0
+      ? `Jarvis online. Systems operational. You have ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''} requiring attention, Raphael.`
+      : 'Jarvis online. Systems operational.';
+    speakResponse(greeting);
     setTimeout(() => { if (overlay) overlay.remove(); }, 700);
   }
 
@@ -483,9 +489,12 @@ function initInteractiveBlob() {
 // ---------------------------------------------------------
 // 8. Free-form draggable dashboard widgets (desktop only —
 //    positions persist in localStorage; mobile keeps normal
-//    grid flow for usability)
+//    grid flow for usability). Uses position:absolute relative
+//    to the dashboard-grid container (not position:fixed), so
+//    widgets scroll along with the page like normal content
+//    while still being draggable to anywhere within that area.
 // ---------------------------------------------------------
-const WIDGET_POS_KEY = 'jarvis-widget-positions';
+const WIDGET_POS_KEY = 'jarvis-widget-positions-v2';
 
 function loadWidgetPositions() {
   try { return JSON.parse(localStorage.getItem(WIDGET_POS_KEY)) || {}; }
@@ -504,18 +513,27 @@ function initDraggableWidgets() {
   const positions = loadWidgetPositions();
   const desktopQuery = window.matchMedia('(min-width: 880px)');
 
-  function clampToViewport(x, y, widgetEl) {
-    const margin = 8;
-    const maxX = window.innerWidth - widgetEl.offsetWidth - margin;
-    const maxY = window.innerHeight - 40; // leave the header grabbable near the bottom edge
+  function updateContainerHeight() {
+    let maxBottom = 0;
+    widgets.forEach(w => {
+      const bottom = w.offsetTop + w.offsetHeight;
+      if (bottom > maxBottom) maxBottom = bottom;
+    });
+    grid.style.minHeight = Math.max(640, maxBottom + 32) + 'px';
+  }
+
+  function clampToContainer(x, y, widgetEl) {
+    const margin = 4;
+    const maxX = grid.clientWidth - widgetEl.offsetWidth - margin;
     return {
       x: Math.max(margin, Math.min(x, Math.max(margin, maxX))),
-      y: Math.max(margin, Math.min(y, Math.max(margin, maxY)))
+      y: Math.max(margin, y) // no upper bound on Y — the container grows to fit
     };
   }
 
   function enableFreeDrag() {
     grid.classList.add('free-drag');
+    const gridRect = grid.getBoundingClientRect();
     widgets.forEach(w => {
       const saved = positions[w.id];
       let x, y;
@@ -523,24 +541,21 @@ function initDraggableWidgets() {
         x = saved.x; y = saved.y;
       } else {
         // First time going free-form: keep wherever the normal grid flow
-        // had placed it, converted to viewport coordinates.
+        // had placed it, converted to container-relative coordinates.
         const r = w.getBoundingClientRect();
-        x = r.left; y = r.top;
+        x = r.left - gridRect.left;
+        y = r.top - gridRect.top;
       }
-      w.style.left = x + 'px';
-      w.style.top = y + 'px';
-      // Pull back on-screen in case a saved position is now off-screen
-      // (e.g. the browser window got smaller since it was last saved).
-      requestAnimationFrame(() => {
-        const clamped = clampToViewport(x, y, w);
-        w.style.left = clamped.x + 'px';
-        w.style.top = clamped.y + 'px';
-      });
+      const clamped = clampToContainer(x, y, w);
+      w.style.left = clamped.x + 'px';
+      w.style.top = clamped.y + 'px';
     });
+    updateContainerHeight();
   }
 
   function disableFreeDrag() {
     grid.classList.remove('free-drag');
+    grid.style.minHeight = '';
     widgets.forEach(w => { w.style.left = ''; w.style.top = ''; });
   }
 
@@ -557,6 +572,10 @@ function initDraggableWidgets() {
       if (!desktopQuery.matches) return;
       dragging = true;
       try { handle.setPointerCapture(e.pointerId); } catch (err) { /* not critical */ }
+      // Raw client coordinates are fine here even though positioning is
+      // container-relative: pointer deltas during a single drag gesture
+      // are scroll-independent, so we only need the delta, not an
+      // absolute conversion.
       startX = e.clientX; startY = e.clientY;
       origLeft = parseFloat(w.style.left) || 0;
       origTop = parseFloat(w.style.top) || 0;
@@ -567,7 +586,7 @@ function initDraggableWidgets() {
       if (!dragging) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const clamped = clampToViewport(origLeft + dx, origTop + dy, w);
+      const clamped = clampToContainer(origLeft + dx, origTop + dy, w);
       w.style.left = clamped.x + 'px';
       w.style.top = clamped.y + 'px';
     });
@@ -577,24 +596,26 @@ function initDraggableWidgets() {
       dragging = false;
       w.classList.remove('dragging-widget');
       saveWidgetPosition(w.id, parseFloat(w.style.left) || 0, parseFloat(w.style.top) || 0);
+      updateContainerHeight();
     }
     handle.addEventListener('pointerup', endDrag);
     handle.addEventListener('pointercancel', endDrag);
   });
 
-  // If the window is resized, gently pull any now off-screen widgets back in
+  // Keep widgets within bounds horizontally if the window is resized narrower
   window.addEventListener('resize', () => {
     if (!desktopQuery.matches) return;
     widgets.forEach(w => {
       const x = parseFloat(w.style.left) || 0;
       const y = parseFloat(w.style.top) || 0;
-      const clamped = clampToViewport(x, y, w);
+      const clamped = clampToContainer(x, y, w);
       if (clamped.x !== x || clamped.y !== y) {
         w.style.left = clamped.x + 'px';
         w.style.top = clamped.y + 'px';
         saveWidgetPosition(w.id, clamped.x, clamped.y);
       }
     });
+    updateContainerHeight();
   });
 }
 
@@ -694,6 +715,13 @@ function isOverdue(dateStr) {
   today.setHours(0, 0, 0, 0);
   return new Date(dateStr + 'T00:00:00') < today;
 }
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
+let editingTaskId = null; // which task card (if any) is currently in inline-edit mode
 
 function renderTasks() {
   TASK_STATUSES.forEach(status => {
@@ -711,6 +739,58 @@ function renderTasks() {
       const idx = TASK_STATUSES.indexOf(status);
       const li = document.createElement('li');
       li.className = 'kanban-item';
+
+      if (editingTaskId === task.id) {
+        // ---- Inline edit mode: text, priority, and due date all editable ----
+        li.classList.add('editing');
+        li.draggable = false;
+        li.innerHTML = `
+          <div class="card-edit">
+            <input type="text" class="edit-text" value="${escapeHtml(task.text)}">
+            <div class="edit-row">
+              <select class="edit-priority">
+                <option value="low"${task.priority === 'low' ? ' selected' : ''}>Low</option>
+                <option value="medium"${task.priority === 'medium' ? ' selected' : ''}>Medium</option>
+                <option value="high"${task.priority === 'high' ? ' selected' : ''}>High</option>
+              </select>
+              <input type="date" class="edit-due" value="${escapeHtml(task.due || '')}">
+            </div>
+            <div class="edit-actions">
+              <button type="button" class="edit-cancel">CANCEL</button>
+              <button type="button" class="edit-save">SAVE</button>
+            </div>
+          </div>
+        `;
+
+        const textInput = li.querySelector('.edit-text');
+        const prioritySelect = li.querySelector('.edit-priority');
+        const dueInput = li.querySelector('.edit-due');
+
+        function commitEdit() {
+          const newText = textInput.value.trim();
+          if (newText) task.text = newText;
+          task.priority = prioritySelect.value;
+          task.due = dueInput.value || null;
+          editingTaskId = null;
+          saveTasks();
+          renderTasks();
+        }
+
+        li.querySelector('.edit-save').addEventListener('click', commitEdit);
+        li.querySelector('.edit-cancel').addEventListener('click', () => {
+          editingTaskId = null;
+          renderTasks();
+        });
+        textInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+          if (e.key === 'Escape') { editingTaskId = null; renderTasks(); }
+        });
+
+        listEl.appendChild(li);
+        return;
+      }
+
+      // ---- Normal display mode ----
       li.draggable = true;
 
       const metaBits = [`<span class="badge ${task.priority}">${task.priority}</span>`];
@@ -727,7 +807,10 @@ function renderTasks() {
             <button class="move-back" aria-label="Move to previous category">‹</button>
             <button class="move-fwd" aria-label="Move to next category">›</button>
           </div>
-          <button class="card-del" aria-label="Delete task">✕</button>
+          <div class="card-right-actions">
+            <button class="card-edit-btn" aria-label="Edit task">✎</button>
+            <button class="card-del" aria-label="Delete task">✕</button>
+          </div>
         </div>
       `;
       li.querySelector('.card-text').textContent = task.text;
@@ -739,8 +822,14 @@ function renderTasks() {
       backBtn.addEventListener('click', () => moveTaskStep(task, -1));
       fwdBtn.addEventListener('click', () => moveTaskStep(task, 1));
 
+      li.querySelector('.card-edit-btn').addEventListener('click', () => {
+        editingTaskId = task.id;
+        renderTasks();
+      });
+
       li.querySelector('.card-del').addEventListener('click', () => {
         tasks = tasks.filter(t => t.id !== task.id);
+        if (editingTaskId === task.id) editingTaskId = null;
         saveTasks();
         renderTasks();
       });
@@ -759,6 +848,8 @@ function renderTasks() {
       listEl.appendChild(li);
     });
   });
+
+  updateAlertBadge();
 }
 
 function moveTaskTo(task, newStatus) {
@@ -778,6 +869,61 @@ function addNewTask(title, priority = 'medium', due = null) {
   tasks.push({ id: nextTaskId++, text: title, priority, due: due || null, status: 'todo' });
   saveTasks();
   renderTasks();
+}
+
+// ---------------------------------------------------------
+// Alert Center — a header bell showing overdue tasks at a
+// glance. Recomputed automatically every time renderTasks()
+// runs, so it's always in sync with the actual board state.
+// ---------------------------------------------------------
+function updateAlertBadge() {
+  const badge = document.getElementById('alert-badge');
+  const listEl = document.getElementById('alert-list');
+  if (!badge || !listEl) return;
+
+  const overdue = tasks.filter(t => t.status !== 'done' && t.due && isOverdue(t.due));
+
+  if (overdue.length) {
+    badge.style.display = 'flex';
+    badge.textContent = overdue.length > 9 ? '9+' : String(overdue.length);
+  } else {
+    badge.style.display = 'none';
+  }
+
+  listEl.innerHTML = '';
+  if (!overdue.length) {
+    listEl.innerHTML = '<li class="alert-empty">No active alerts, Raphael. All clear.</li>';
+    return;
+  }
+
+  overdue.forEach(task => {
+    const li = document.createElement('li');
+    li.className = 'alert-item';
+    li.innerHTML = `<span class="alert-text"></span><span class="alert-due"></span>`;
+    li.querySelector('.alert-text').textContent = task.text;
+    li.querySelector('.alert-due').textContent = `⚠ Due ${formatDue(task.due)}`;
+    li.addEventListener('click', () => {
+      document.querySelector('.tab-btn[data-panel="panel-tasks"]')?.click();
+      document.getElementById('alert-dropdown')?.classList.remove('open');
+    });
+    listEl.appendChild(li);
+  });
+}
+
+function initAlertCenter() {
+  const btn = document.getElementById('btn-alerts');
+  const dropdown = document.getElementById('alert-dropdown');
+  if (!btn || !dropdown) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && e.target !== btn) dropdown.classList.remove('open');
+  });
+
+  updateAlertBadge(); // reflect current state immediately, don't wait for the next task edit
 }
 
 function initTaskBoard() {
@@ -838,7 +984,7 @@ function appendChatMessage(sender, text) {
 
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
-  const label = sender === 'user' ? 'OPERATIVE' : sender === 'jarvis' ? 'JARVIS' : 'SYSTEM';
+  const label = sender === 'user' ? 'RAPHAEL' : sender === 'jarvis' ? 'JARVIS' : 'SYSTEM';
   div.innerHTML = `<div class="who">${label}</div><div class="bubble"></div>`;
   div.querySelector('.bubble').textContent = text;
   log.appendChild(div);
@@ -863,7 +1009,7 @@ async function callGemini(userText) {
       body: JSON.stringify({
         contents: chatHistory,
         systemInstruction: {
-          parts: [{ text: 'You are JARVIS, a courteous, efficient personal AI assistant addressing the user as "sir" or "Operative". Keep replies concise, confident, and professional, in the style of a helpful sci-fi assistant, without being overly theatrical.' }]
+          parts: [{ text: 'You are JARVIS, a courteous, efficient personal AI assistant addressing the user as "sir" or "Raphael". Keep replies concise, confident, and professional, in the style of a helpful sci-fi assistant, without being overly theatrical.' }]
         },
         generationConfig: { maxOutputTokens: 1024 }
       })

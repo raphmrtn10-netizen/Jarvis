@@ -136,21 +136,15 @@ main { display: flex; flex-direction: column; align-items: center; }
   position: relative; width: min(58vw, 360px); aspect-ratio: 1 / 1;
   display: flex; align-items: center; justify-content: center; margin: 0 auto;
   --hud-c: var(--accent);
-  box-shadow: 0 0 60px rgba(79, 216, 230, 0.12);
   background: radial-gradient(circle, rgba(79, 216, 230, 0.05) 0%, transparent 70%);
-  transition: box-shadow 0.4s ease;
 }
 .hud-core.listening { --hud-c: var(--danger); }
 .hud-core.thinking  { --hud-c: #a78bfa; }
 .hud-core.speaking  { --hud-c: var(--good); }
 
-/* Compact variant used for the reactive indicator on the Comms panel */
+/* Compact variant kept for potential future use elsewhere — the Comms
+   panel now uses the same full, real size as the Dashboard core. */
 .hud-core.compact { width: min(40vw, 190px); margin: 0; }
-.hud-core.compact .core-center { padding: 10px 18px; }
-.hud-core.compact .core-center .label { font-size: 8px; margin-bottom: 4px; }
-.hud-core.compact .core-center .value { font-size: clamp(14px, 3vw, 18px); }
-.hud-core.compact .orbit-point { width: 3px; height: 3px; }
-
 .hud-sphere { position: absolute; inset: 0; border-radius: 50%; }
 .orbit { border: 1px dashed var(--hud-c); opacity: 0.4; transition: border-color 0.4s ease; }
 .orbit-a { inset: 2%; border: 2px solid transparent; border-top-color: var(--hud-c); border-bottom-color: var(--hud-c); animation: orbit-rotate 16s linear infinite; }
@@ -180,7 +174,6 @@ main { display: flex; flex-direction: column; align-items: center; }
 .hud-core.thinking .ring-sweep-slow { animation-duration: 3.5s; }
 
 .blob-canvas { position: absolute; width: 220px; height: 220px; z-index: 1; pointer-events: none; }
-.hud-core.compact .blob-canvas { width: 130px; height: 130px; }
 
 /* Frosted glass plate behind STATUS/READY — no drop shadow, so it
    never reads as a dark square behind the pill; definition comes
@@ -194,13 +187,13 @@ main { display: flex; flex-direction: column; align-items: center; }
 .core-center .value { font-size: clamp(22px, 4vw, 32px); font-weight: 900; color: #fff; letter-spacing: 0.06em; text-shadow: 0 0 4px rgba(0,0,0,0.8), 0 0 22px var(--hud-c), 0 0 40px var(--hud-c); transition: text-shadow 0.3s ease; }
 
 /* ---------- Comms layout: chat on the left, reactive HUD on the right ---------- */
-.comms-layout { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1000px; align-items: center; }
+.comms-layout { display: flex; flex-direction: column; gap: 28px; width: 100%; max-width: 1200px; align-items: center; }
 .comms-hud { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .comms-hud-caption { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.15em; color: var(--text-lo); text-transform: uppercase; }
 .comms-main { width: 100%; display: flex; flex-direction: column; align-items: center; }
-@media (min-width: 900px) {
-  .comms-layout { flex-direction: row-reverse; align-items: flex-start; justify-content: center; }
-  .comms-hud { flex: 0 0 220px; padding-top: 20px; }
+@media (min-width: 1150px) {
+  .comms-layout { flex-direction: row-reverse; align-items: center; justify-content: center; }
+  .comms-hud { flex: 0 0 340px; }
   .comms-main { flex: 1; min-width: 0; max-width: 760px; }
 }
 
@@ -211,8 +204,12 @@ main { display: flex; flex-direction: column; align-items: center; }
   display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;
   width: 100%; max-width: 1100px; margin-top: 32px;
 }
-.dashboard-grid.free-drag { display: block; min-height: 0; }
-.dashboard-grid.free-drag .widget { position: fixed; width: 280px; }
+/* free-drag: widgets become absolutely positioned within this container,
+   so dragging them anywhere is possible while they still scroll along
+   naturally with the rest of the page (unlike position:fixed, which
+   would stay glued to the screen while scrolling). */
+.dashboard-grid.free-drag { display: block; position: relative; min-height: 640px; }
+.dashboard-grid.free-drag .widget { position: absolute; width: 280px; }
 
 .widget {
   background: var(--surface), rgba(7, 13, 18, 0.65); border: 1px solid var(--line); border-radius: var(--radius-lg);
@@ -334,8 +331,32 @@ main { display: flex; flex-direction: column; align-items: center; }
 .card-move button { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--line); border-radius: var(--radius); color: var(--text-lo); font-size: 11px; line-height: 1; cursor: pointer; transition: color .15s ease, border-color .15s ease; }
 .card-move button:hover { color: var(--text-hi); border-color: var(--text-hi); }
 .card-move button:disabled { opacity: 0.25; cursor: default; }
+.card-right-actions { display: flex; gap: 4px; }
+.card-edit-btn { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--line); border-radius: var(--radius); color: var(--text-lo); font-size: 11px; line-height: 1; cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.card-edit-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
 .card-del { background: none; border: none; color: var(--text-lo); cursor: pointer; font-size: 13px; line-height: 1; }
 .card-del:hover { color: var(--danger); }
+
+/* Inline task editing */
+.kanban-item.editing { cursor: default; background: rgba(79, 216, 230, 0.04); }
+.card-edit { display: flex; flex-direction: column; gap: 8px; }
+.card-edit .edit-text {
+  width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--accent-dim); color: var(--text-hi);
+  padding: 8px 10px; border-radius: var(--radius); font-family: var(--font-body); font-size: 13px; outline: none;
+}
+.card-edit .edit-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.edit-row { display: flex; gap: 6px; }
+.card-edit select, .card-edit input[type="date"] {
+  flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--line); color: var(--text-hi);
+  padding: 6px 8px; border-radius: var(--radius); font-size: 12px; font-family: var(--font-body); outline: none;
+}
+.edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.edit-actions button {
+  font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; padding: 6px 12px;
+  border-radius: var(--radius); cursor: pointer; border: 1px solid var(--line); background: none; color: var(--text-lo);
+}
+.edit-actions .edit-save { background: linear-gradient(155deg, var(--accent-soft), var(--accent)); color: var(--bg-0); border: none; }
+.edit-actions .edit-cancel:hover { color: var(--text-hi); }
 
 @media (max-width: 760px) {
   .task-tab-nav { display: flex; }
@@ -460,3 +481,27 @@ footer { border-top: 1px solid var(--line); padding: 14px clamp(16px,4vw,48px); 
 .palette-item.active-item { background: rgba(79, 216, 230, 0.1); }
 .palette-item .palette-hint { margin-left: auto; font-size: 10px; color: var(--text-lo); font-family: var(--font-mono); }
 .palette-empty { padding: 24px; text-align: center; color: var(--text-lo); font-size: 13px; }
+
+/* ---------- Alert Center (overdue task notifications) ---------- */
+.alert-wrap { position: relative; }
+.alert-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 3px;
+  background: var(--danger); color: #fff; border-radius: 999px; font-family: var(--font-mono);
+  font-size: 10px; display: flex; align-items: center; justify-content: center; line-height: 1;
+  box-shadow: 0 0 6px rgba(230, 95, 95, 0.7);
+}
+.alert-dropdown {
+  display: none; position: absolute; top: calc(100% + 10px); right: 0; z-index: 60;
+  width: min(88vw, 320px); background: var(--surface), var(--bg-1); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); box-shadow: 0 24px 60px -16px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06) inset;
+  overflow: hidden;
+}
+.alert-dropdown.open { display: block; }
+.alert-dropdown-head { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.2em; color: var(--accent); padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.alert-list { list-style: none; max-height: 280px; overflow-y: auto; }
+.alert-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-bottom: 1px dashed var(--line); cursor: pointer; transition: background .1s ease; }
+.alert-item:last-child { border-bottom: none; }
+.alert-item:hover { background: rgba(255,255,255,0.04); }
+.alert-item .alert-text { font-size: 13px; color: var(--text-hi); }
+.alert-item .alert-due { font-size: 11px; color: var(--danger); font-family: var(--font-mono); }
+.alert-empty { padding: 20px 16px; text-align: center; color: var(--text-lo); font-size: 12px; }
